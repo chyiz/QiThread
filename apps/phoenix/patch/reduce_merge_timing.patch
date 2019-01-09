@@ -1,0 +1,954 @@
+diff --git a/include/map_reduce.h b/include/map_reduce.h
+index f52802d..96b7f3c 100644
+--- a/include/map_reduce.h
++++ b/include/map_reduce.h
+@@ -29,6 +29,7 @@
+ 
+ #include <sys/types.h>
+ #include <stdbool.h>
++#include <stdint.h>
+ 
+ /* Standard data types for the function arguments and results */
+  
+@@ -41,6 +42,7 @@ typedef struct
+ {
+    intptr_t length;
+    void *data;
++   uint64_t soba_time;
+ } map_args_t;
+ 
+ /* Single element of result
+@@ -63,6 +65,13 @@ typedef struct
+    keyval_t *data;
+ } final_data_t;
+ 
++//Extra data for debugging
++typedef struct
++{
++    uint64_t soba_time;
++    void *key;
++} task_args_t;
++
+ /* Scheduler function pointer type definitions */
+ 
+ /* Map function takes in map_args_t, as supplied by the splitter
+@@ -164,6 +173,7 @@ typedef struct
+     float key_match_factor;     /* Magic number that describes the ratio of 
+     * the input data size to the output data size.
+     * This is used as a hint. */
++    int reduce_soba_id;
+ } map_reduce_args_t;
+ 
+ /* Runtime defined functions. */
+@@ -200,4 +210,6 @@ void emit(void *key, void *val);
+  */
+ int default_partition(int reduce_tasks, void* key, int key_size);
+ 
++void identity_reduce_wordcount (void *, iterator_t *itr);
++
+ #endif // MAP_REDUCE_H_
+diff --git a/include/stddefines.h b/include/stddefines.h
+index daed8db..d04b615 100644
+--- a/include/stddefines.h
++++ b/include/stddefines.h
+@@ -33,7 +33,7 @@
+ #include <stdint.h>
+ #include <stdio.h>
+ 
+-//#define TIMING
++#define TIMING
+ 
+ /* Debug printf */
+ #define dprintf(...) fprintf(stdout, __VA_ARGS__)
+diff --git a/src/map_reduce.c b/src/map_reduce.c
+index b815fbd..d510c7c 100644
+--- a/src/map_reduce.c
++++ b/src/map_reduce.c
+@@ -54,6 +54,7 @@
+ #include "locality.h"
+ #include "struct.h"
+ #include "tpool.h"
++#include "tern/user.h"
+ 
+ #if !defined(_LINUX_) && !defined(_SOLARIS_)
+ #error OS not supported
+@@ -123,6 +124,7 @@ typedef struct
+     uintptr_t work_time;
+     uintptr_t user_time;
+     uintptr_t combiner_time;
++    uintptr_t soba_time;
+ } thread_timing_t;
+ 
+ typedef struct {
+@@ -176,13 +178,16 @@ typedef struct
+ 
+     taskQ_t         *taskQueue;     /* Queues of tasks. */
+     tpool_t         *tpool;         /* Thread pool. */
++    int             reduce_soba_id;
+ } mr_env_t;
+ 
++#define MAX_NUM_THREADS 64
++
+ #ifdef TIMING
+-static pthread_key_t emit_time_key;
++static void* emit_time_key[MAX_NUM_THREADS];
+ #endif
+-static pthread_key_t env_key;       /* Environment for current thread. */
+-static pthread_key_t tpool_key;
++static void* env_key[MAX_NUM_THREADS];       /* Environment for current thread. */
++static void* tpool_key[MAX_NUM_THREADS];
+ 
+ /* Data passed on to each worker thread. */
+ typedef struct
+@@ -230,12 +235,84 @@ static void merge(mr_env_t* mr);
+ static void run_combiner (mr_env_t* env, int thread_idx);
+ #endif
+ 
++//static __thread int local_tid = -1;
++static int thread_counter;
++static pthread_mutex_t thread_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
++
++#define HASHSIZE 65536
++static int hashtab[HASHSIZE];
++
++unsigned int hash(pid_t id)
++{
++        return id % HASHSIZE;
++}
++
++static int Pthread_key_create(void * key[], void (*nothing) (void *))
++{
++    int i;
++    for (i = 0; i < MAX_NUM_THREADS; ++i)
++        key[i] = NULL;
++    return 0;
++}
++
++int GetLocalTid(void)
++{
++    pid_t real_tid = syscall(SYS_gettid);
++    int index = hash(real_tid);
++    //struct nlist *query;
++    if(hashtab[index] == 0)
++    {
++        pthread_mutex_lock(&thread_counter_mutex);
++        hashtab[index] = ++thread_counter;
++        pthread_mutex_unlock(&thread_counter_mutex);
++    }
++    return hashtab[index];
++}
++
++static int
++Pthread_setspecific (void * key[], const void *value)
++{
++    key[GetLocalTid()] = value;
++    return 0;
++}
++
++void *
++Pthread_getspecific (void * key[])
++{
++    return key[GetLocalTid()];
++}
++
++//static int
++//Pthread_setspecific (void * key[], const void *value)
++//{
++//    if (local_tid < 0) {
++//        pthread_mutex_lock(&thread_counter_mutex);
++//        local_tid = thread_counter++; 
++//        pthread_mutex_unlock(&thread_counter_mutex);
++//    }
++//    key[local_tid] = value;
++//    return 0;
++//}
++//
++//void *
++//Pthread_getspecific (void * key[])
++//{
++//    if (local_tid < 0) {
++//        pthread_mutex_lock(&thread_counter_mutex);
++//        local_tid = thread_counter++;
++//        pthread_mutex_unlock(&thread_counter_mutex);
++//    }
++//    return key[local_tid];
++//}
++
++
++
+ int 
+ map_reduce_init ()
+ {
+-    CHECK_ERROR (pthread_key_create (&tpool_key, NULL));
++    CHECK_ERROR (Pthread_key_create (tpool_key, NULL));
+ 
+-    CHECK_ERROR (pthread_setspecific (tpool_key, NULL));
++    CHECK_ERROR (Pthread_setspecific (tpool_key, NULL));
+ 
+     return 0;
+ }
+@@ -260,12 +337,12 @@ map_reduce (map_reduce_args_t * args)
+        /* could not allocate environment */
+        return -1;
+     }
+-    //env_print (env);
++    env_print (env);
+     env->taskQueue = tq_init (env->num_map_threads);
+     assert (env->taskQueue != NULL);
+ 
+     /* Reuse thread pool. */
+-    env->tpool = pthread_getspecific (tpool_key);
++    env->tpool = Pthread_getspecific (tpool_key);
+     if (env->tpool == NULL) {
+         tpool_t *tpool;
+ 
+@@ -273,15 +350,15 @@ map_reduce (map_reduce_args_t * args)
+         CHECK_ERROR (tpool == NULL);
+ 
+         env->tpool = tpool;
+-        CHECK_ERROR (pthread_setspecific (tpool_key, tpool));
++        CHECK_ERROR (Pthread_setspecific (tpool_key, tpool));
+     }
+ 
+ #ifdef TIMING
+-    CHECK_ERROR (pthread_key_create (&emit_time_key, NULL));
++    CHECK_ERROR (Pthread_key_create (emit_time_key, NULL));
+ #endif
+-    CHECK_ERROR (pthread_key_create (&env_key, NULL));
++    CHECK_ERROR (Pthread_key_create (env_key, NULL));
+ 
+-    pthread_setspecific (env_key, env);
++    Pthread_setspecific (env_key, env);
+ 
+     get_time (&end);
+ 
+@@ -322,12 +399,12 @@ map_reduce (map_reduce_args_t * args)
+     /* Cleanup. */
+     get_time (&begin);
+     env_fini(env);
+-    CHECK_ERROR (pthread_key_delete (env_key));
++    /*CHECK_ERROR (Pthread_key_delete (env_key));*/
+     get_time (&end);
+ 
+ #ifdef TIMING
+     fprintf (stderr, "library finalize: %u\n", time_diff (&end, &begin));
+-    CHECK_ERROR (pthread_key_delete (emit_time_key));
++    /*CHECK_ERROR (Pthread_key_delete (emit_time_key));*/
+ #endif
+ 
+     return 0;
+@@ -337,10 +414,10 @@ int map_reduce_finalize ()
+ {
+     tpool_t *tpool;
+ 
+-    tpool = pthread_getspecific (tpool_key);
++    tpool = Pthread_getspecific (tpool_key);
+     CHECK_ERROR (tpool_destroy (tpool));
+ 
+-    pthread_key_delete (tpool_key);
++    /*Pthread_key_delete (tpool_key);*/
+ 
+     return 0;
+ }
+@@ -490,6 +567,8 @@ env_init (map_reduce_args_t *args)
+         /* TODO: Make this tunable */
+         env->schedPolicies[i] = sched_policy_get(SCHED_POLICY_STRAND_FILL);
+     }
++    
++    env->reduce_soba_id = args->reduce_soba_id;
+ 
+     return env;
+ }
+@@ -571,6 +650,7 @@ start_workers (mr_env_t* env, thread_arg_t *th_arg)
+     uint64_t        work_time = 0;
+     uint64_t        user_time = 0;
+     uint64_t        combiner_time = 0;
++    uint64_t	    soba_time = 0;
+ #endif
+ 
+     assert(th_arg != NULL);
+@@ -608,6 +688,7 @@ start_workers (mr_env_t* env, thread_arg_t *th_arg)
+     work_time += timing->work_time;
+     user_time += timing->user_time;
+     combiner_time += timing->combiner_time;
++    soba_time += timing->soba_time;
+     mem_free (timing);
+ #endif
+     mem_free (th_arg_array[0]);
+@@ -624,6 +705,7 @@ start_workers (mr_env_t* env, thread_arg_t *th_arg)
+         work_time += timing->work_time;
+         user_time += timing->user_time;
+         combiner_time += timing->combiner_time;
++        soba_time += timing->soba_time;
+         mem_free (timing);
+ #endif
+         mem_free (th_arg_array[thread_index]);
+@@ -642,6 +724,8 @@ start_workers (mr_env_t* env, thread_arg_t *th_arg)
+                                         user_time / num_threads);
+             fprintf (stderr, "map combiner time: %" PRIu64 "\n", 
+                                         combiner_time / num_threads);
++	    fprintf (stderr, "soft barrier time: %" PRIu64 "\n",
++					soba_time / num_threads);
+             break;
+ 
+         case TASK_TYPE_REDUCE:
+@@ -649,11 +733,15 @@ start_workers (mr_env_t* env, thread_arg_t *th_arg)
+                                         work_time / num_threads);
+             fprintf (stderr, "reduce user time: %" PRIu64 "\n", 
+                                         user_time / num_threads);
++            fprintf (stderr, "soft barrier time: %" PRIu64 "\n",
++					soba_time / num_threads);
+             break;
+ 
+         case TASK_TYPE_MERGE:
+             fprintf (stderr, "merge work time: %" PRIu64 "\n",
+                                         work_time / num_threads);
++            fprintf (stderr, "soft barrier time: %" PRIu64 "\n",
++					soba_time / num_threads);
+ 
+         default:
+             break;
+@@ -666,6 +754,7 @@ start_workers (mr_env_t* env, thread_arg_t *th_arg)
+ 
+ typedef struct {
+     uint64_t            run_time;
++    uint64_t		soba_time;
+     int                 lgrp;
+ } map_worker_task_args_t;
+ 
+@@ -674,7 +763,7 @@ typedef struct {
+  * @return true if ran a task, false otherwise
+  */
+ static bool map_worker_do_next_task (
+-    mr_env_t *env, int thread_index, map_worker_task_args_t *args)
++    mr_env_t *env, int thread_index, map_worker_task_args_t *args, thread_arg_t *th_arg)
+ {
+     struct timeval  begin, end;
+     int             alloc_len;
+@@ -699,6 +788,7 @@ static bool map_worker_do_next_task (
+ 
+     thread_func_arg.length = map_task.len;
+     thread_func_arg.data = (void *)map_task.data;
++    thread_func_arg.soba_time = 0;
+ 
+     dprintf("Task %d: cpu_id -> %d - Started\n", curr_task, th_arg->cpu_id);
+ 
+@@ -709,6 +799,9 @@ static bool map_worker_do_next_task (
+ 
+ #ifdef TIMING
+     args->run_time = time_diff (&end, &begin);
++    args->soba_time = thread_func_arg.soba_time;
++    dprintf (stderr, "Map Task %d: cpu_id -> %d start: %ld.%06ld; end: %ld.%06ld; delta: %ld\n",
++            curr_task, th_arg->cpu_id, begin.tv_sec, begin.tv_usec, end.tv_sec, end.tv_usec, args->run_time);
+ #endif
+ 
+     dprintf("Task %d: cpu_id -> %d - Done\n", curr_task, th_arg->cpu_id);
+@@ -731,6 +824,7 @@ map_worker (void *args)
+     struct timeval          begin, end;
+     struct timeval          work_begin, work_end;
+     uintptr_t               user_time = 0;
++    uintptr_t		    soba_time = 0;
+     thread_arg_t            *th_arg = (thread_arg_t *)args;
+     mr_env_t                *env = th_arg->env;
+     int                     thread_index = th_arg->thread_id;
+@@ -746,16 +840,17 @@ map_worker (void *args)
+     /* Bind thread. */
+     CHECK_ERROR (proc_bind_thread (th_arg->cpu_id) != 0);
+ 
+-    CHECK_ERROR (pthread_setspecific (env_key, env));
++    CHECK_ERROR (Pthread_setspecific (env_key, env));
+ #ifdef TIMING
+-    CHECK_ERROR (pthread_setspecific (emit_time_key, 0));
++    CHECK_ERROR (Pthread_setspecific (emit_time_key, 0));
+ #endif
+ 
+     mwta.lgrp = loc_get_lgrp();
+-
++    
+     get_time (&work_begin);
+-    while (map_worker_do_next_task (env, thread_index, &mwta)) {
++    while (map_worker_do_next_task (env, thread_index, &mwta, th_arg)) {
+         user_time += mwta.run_time;
++        soba_time += mwta.soba_time;
+         num_assigned++;
+     }
+     get_time (&work_end);
+@@ -786,9 +881,10 @@ map_worker (void *args)
+ 
+ #ifdef TIMING
+     thread_timing_t *timing = calloc (1, sizeof (thread_timing_t));
+-    uintptr_t emit_time = (uintptr_t)pthread_getspecific (emit_time_key);
++    uintptr_t emit_time = (uintptr_t)Pthread_getspecific (emit_time_key);
+     timing->user_time = user_time - emit_time;
+     timing->work_time = work_time - timing->user_time;
++    timing->soba_time = soba_time;
+     timing->combiner_time = combiner_time;
+     return (void *)timing;
+ #else
+@@ -799,6 +895,7 @@ map_worker (void *args)
+ typedef struct {
+     struct iterator_t   itr;
+     uint64_t            run_time;
++    uint64_t		soba_time;
+     int                 num_map_threads;
+     int                 lgrp;
+ } reduce_worker_task_args_t;
+@@ -812,15 +909,33 @@ static bool reduce_worker_do_next_task (
+     mr_env_t *env, int thread_index, reduce_worker_task_args_t *args)
+ {
+     struct timeval  begin, end;
++    struct timeval  last_begin;
++    struct timeval  it_begin, it_end, before_loop, after_loop;
++    struct timeval  dequeue_end;
+     intptr_t        curr_reduce_task = 0;
+     keyvals_t       *min_key_val, *next_min;
+     task_t          reduce_task;
+     int             num_map_threads;
+     int             curr_thread;
+     int             lgrp = args->lgrp;
++    int    reduce_func_time = -1, last_soba_time = -1;
++    int    dequeue_time = -1;
+ 
++    bool            timing_out = false;
++
++#ifdef TIMING
++    get_time(&begin);
++#endif
+     /* Get the next reduce task. */
+-    if (tq_dequeue (env->taskQueue, &reduce_task, lgrp, thread_index) == 0) {
++    
++    int dequeue_result = tq_dequeue (env->taskQueue, &reduce_task, lgrp, thread_index);
++
++#ifdef TIMING
++    get_time(&dequeue_end);
++    dequeue_time = time_diff(&dequeue_end, &begin);
++#endif
++    if (dequeue_result == 0) {
++
+         /* No more reduce tasks. */
+         return false;
+     }
+@@ -832,10 +947,20 @@ static bool reduce_worker_do_next_task (
+     num_map_threads =  args->num_map_threads;
+ 
+     args->run_time = 0;
++    //args->soba_time = 0;
+     min_key_val = NULL;
+     next_min = NULL;
+ 
++    //soba_wait(env->reduce_soba_id);
++#ifdef TIMING
++    //get_time(&before_loop);
++    //int iter_counter = -1;
++#endif
+     do {
++#ifdef TIMING
++        //get_time(&it_begin);
++        //iter_counter++;
++#endif
+         for (curr_thread = 0; curr_thread < num_map_threads; curr_thread++) {
+             keyvals_t       *curr_key_val;
+             keyvals_arr_t   *thread_array;
+@@ -873,29 +998,54 @@ static bool reduce_worker_do_next_task (
+             keyvals_t       *curr_key_val;
+ 
+             if (env->reduce != identity_reduce) {
++#ifdef TIMING
++                last_begin = begin;
+                 get_time (&begin);
+-                env->reduce (min_key_val->key, &args->itr);
++                fprintf (stderr, "%d, %d, %d, %d, %d, %d, %d\n", thread_index, curr_reduce_task, last_soba_time, reduce_func_time, time_diff(&begin, &last_begin), dequeue_time, args->soba_time);
++                dequeue_time = -1;
++                timing_out = true;
++#endif
++                task_args_t task_args = (task_args_t) {
++                    .soba_time = 0,
++                    .key=min_key_val->key
++                };
++                env->reduce (&task_args, &args->itr);
+                 get_time (&end);
+ #ifdef TIMING
+-                args->run_time += time_diff (&end, &begin);
++                reduce_func_time = time_diff(&end, &begin);
++                args->run_time += reduce_func_time;
++                //args->soba_time += task_args.soba_time;
++                args->soba_time++;
++                last_soba_time = task_args.soba_time;
++                timing_out = false;
++                //fprintf (stderr, "Reduce Task %d took %d\n", curr_reduce_task, time_diff(&end, &begin));
+ #endif
+             } else {
+                 env->reduce (min_key_val->key, &args->itr);
+             }
+-
++             
+             /* Free up memory */
+             iter_rewind (&args->itr);
++            //int free_mem_itr_c =0;
++            struct timeval freeup_begin, freeup_end;
++            //get_time(&freeup_begin);
+             while (iter_next_list (&args->itr, &curr_key_val)) {
+                 val_t   *vals, *next;
+-
++                //free_mem_itr_c ++;
+                 vals = curr_key_val->vals;
+                 while (vals != NULL) {
++                    //free_mem_itr_c ++;
+                     next = vals->next_val;
++                    //get_time(&freeup_begin);
++                    //fprintf(stderr, "Freeing val at thread %d:%d, length:%d, size: %d\n", thread_index, args->soba_time,vals!=NULL?vals->size:0, sizeof(vals));
+                     mem_free (vals);
++                    //get_time(&freeup_end);
+                     vals = next;
+                 }
+             }
+-
++            //get_time(&freeup_end);
++            //fprintf (stderr, "Free mem iterations: %d, %d, %d\n", \
++                        thread_index, curr_reduce_task, time_diff(&freeup_end, &freeup_begin));
+             iter_reset(&args->itr);
+         }
+ 
+@@ -908,8 +1058,15 @@ static bool reduce_worker_do_next_task (
+             env->intermediate_vals[curr_thread][curr_reduce_task].pos >=
+             env->intermediate_vals[curr_thread][curr_reduce_task].len;
+             curr_thread++);
++#ifdef TIMING
++        //get_time (&it_end);
++        //fprintf (stderr, "Thread %d: Reduce Task %d iteration took %d\n", thread_index, curr_reduce_task, time_diff(&it_end, &it_begin));
++#endif
+     } while (curr_thread != num_map_threads);
+-
++#ifdef TIMING
++    //get_time(&after_loop);
++    //fprintf (stderr, "Thread %d: Reduce Task %d whole loop took %d\n", thread_index, curr_reduce_task, time_diff(&after_loop, &before_loop));
++#endif
+     /* Free up the memory. */
+     for (curr_thread = 0; curr_thread < num_map_threads; curr_thread++) {
+         keyvals_arr_t   *arr;
+@@ -918,7 +1075,15 @@ static bool reduce_worker_do_next_task (
+         if (arr->alloc_len != 0)
+             mem_free(arr->arr);
+     }
+-
++#ifdef TIMING
++    last_begin = begin;
++    get_time(&begin);
++    if (!timing_out){
++        fprintf (stderr, "%d, %d, %d, %d, %d, %d, %d\n", thread_index, curr_reduce_task, last_soba_time, reduce_func_time, time_diff(&begin, &last_begin), dequeue_time, args->soba_time);
++    } else {
++        fprintf (stderr, "%d, %d, %d, %d, %d, %d, %d\n", thread_index, curr_reduce_task, -1, -1, time_diff(&begin, &last_begin), dequeue_time, args->soba_time);
++    }
++#endif
+     return true;
+ }
+ 
+@@ -928,7 +1093,7 @@ reduce_worker (void *args)
+     assert(args != NULL);
+ 
+     struct timeval              work_begin, work_end;
+-    uintptr_t                   user_time = 0;
++    uintptr_t                   user_time = 0, soba_time = 0;
+     thread_arg_t                *th_arg = (thread_arg_t *)args;
+     int                         thread_index = th_arg->thread_id;
+     mr_env_t                    *env = th_arg->env;
+@@ -943,9 +1108,9 @@ reduce_worker (void *args)
+     /* Bind thread. */
+     CHECK_ERROR (proc_bind_thread (th_arg->cpu_id) != 0);
+ 
+-    CHECK_ERROR (pthread_setspecific (env_key, env));
++    CHECK_ERROR (Pthread_setspecific (env_key, env));
+ #ifdef TIMING
+-    CHECK_ERROR (pthread_setspecific (emit_time_key, 0));
++    CHECK_ERROR (Pthread_setspecific (emit_time_key, 0));
+ #endif
+ 
+     if (env->oneOutputQueuePerMapTask)
+@@ -957,11 +1122,12 @@ reduce_worker (void *args)
+     CHECK_ERROR (iter_init (&rwta.itr, env->num_map_threads));
+     rwta.num_map_threads = num_map_threads;
+     rwta.lgrp = loc_get_lgrp();
++    rwta.soba_time = 0;
+ 
+     get_time (&work_begin);
+-
+     while (reduce_worker_do_next_task (env, thread_index, &rwta)) {
+         user_time += rwta.run_time;
++        soba_time += rwta.soba_time;
+     }
+ 
+     get_time (&work_end);
+@@ -977,9 +1143,10 @@ reduce_worker (void *args)
+ 
+ #ifdef TIMING
+     thread_timing_t *timing = calloc (1, sizeof (thread_timing_t));
+-    uintptr_t emit_time = (uintptr_t)pthread_getspecific (emit_time_key);
++    uintptr_t emit_time = (uintptr_t)Pthread_getspecific (emit_time_key);
+     timing->user_time = user_time - emit_time;
+     timing->work_time = work_time - timing->user_time;
++    timing->soba_time = soba_time;
+     return (void *)timing;
+ #else
+     return (void *)0;
+@@ -995,13 +1162,14 @@ merge_worker (void *args)
+ {
+     assert(args != NULL);
+ 
+-    struct timeval  work_begin, work_end;
++    struct timeval  work_begin, work_end, soba_begin, soba_end;
+     thread_arg_t    *th_arg = (thread_arg_t *)args;
+     int             thread_index = th_arg->thread_id;
+     mr_env_t        *env = th_arg->env;
+     int             cpu;
+ #ifdef TIMING
+     uintptr_t       work_time = 0;
++    uintptr_t       soba_time = 0;
+ #endif
+ 
+     env->tinfo[thread_index].tid = pthread_self();
+@@ -1015,7 +1183,7 @@ merge_worker (void *args)
+ 
+     CHECK_ERROR (proc_bind_thread (cpu) != 0);
+ 
+-    CHECK_ERROR (pthread_setspecific (env_key, env));
++    CHECK_ERROR (Pthread_setspecific (env_key, env));
+ 
+     /* Assumes num_merge_threads is modified before each call. */
+     int length = th_arg->merge_len / env->num_merge_threads;
+@@ -1026,10 +1194,15 @@ merge_worker (void *args)
+         length = 2;
+         modlen = th_arg->merge_len % 2;
+     }
+-
++#ifdef TIMING
++    get_time (&soba_begin);
++    //soba_wait(2);
++    get_time (&soba_end);
++    soba_time = time_diff(&soba_end, &soba_begin);
++#endif    
+     int pos = thread_index * length + 
+                 ((thread_index < modlen) ? thread_index : modlen);
+-
++    
+     if (pos < th_arg->merge_len) {
+ 
+         keyval_arr_t *vals = &th_arg->merge_input[pos];
+@@ -1055,6 +1228,7 @@ merge_worker (void *args)
+ #ifdef TIMING
+     thread_timing_t *timing = calloc (1, sizeof (thread_timing_t));
+     timing->work_time = work_time;
++    timing->soba_time = soba_time;
+     return (void *)timing;
+ #else
+     return (void *)0;
+@@ -1262,6 +1436,7 @@ static int gen_reduce_tasks (mr_env_t* env)
+     tq_reset (env->taskQueue, env->num_reduce_threads);
+ 
+     tasks_per_thread = env->num_reduce_tasks / env->num_reduce_threads;
++    fprintf(stderr, "DEBUG: reduce task per thread: %d.\n", tasks_per_thread);
+     tasks_leftover = env->num_reduce_tasks - 
+         tasks_per_thread * env->num_map_threads;
+ 
+@@ -1383,10 +1558,10 @@ emit_intermediate (void *key, void *val, int key_size)
+     get_time (&end);
+ 
+ #ifdef TIMING
+-    uintptr_t total_emit_time = (uintptr_t)pthread_getspecific (emit_time_key);
++    uintptr_t total_emit_time = (uintptr_t)Pthread_getspecific (emit_time_key);
+     uintptr_t emit_time = time_diff (&end, &begin);
+     total_emit_time += emit_time;
+-    CHECK_ERROR (pthread_setspecific (emit_time_key, (void *)total_emit_time));
++    CHECK_ERROR (Pthread_setspecific (emit_time_key, (void *)total_emit_time));
+ #endif
+ }
+ 
+@@ -1429,10 +1604,10 @@ emit (void *key, void *val)
+     get_time (&end);
+ 
+ #ifdef TIMING
+-    uintptr_t total_emit_time = (uintptr_t)pthread_getspecific (emit_time_key);
++    uintptr_t total_emit_time = (uintptr_t)Pthread_getspecific (emit_time_key);
+     uintptr_t emit_time = time_diff (&end, &begin);
+     total_emit_time += emit_time;
+-    CHECK_ERROR (pthread_setspecific (emit_time_key, (void *)total_emit_time));
++    CHECK_ERROR (Pthread_setspecific (emit_time_key, (void *)total_emit_time));
+ #endif
+ }
+ 
+@@ -1777,6 +1952,32 @@ identity_reduce (void *key, iterator_t *itr)
+     }
+ }
+ 
++void
++identity_reduce_wordcount (void *key, iterator_t *itr)
++{
++    void        *val;
++    mr_env_t    *env;
++    struct timeval begin, end;
++ 
++    task_args_t *args = key; 
++    void *real_key = args->key;
++
++#ifdef TIMING
++    get_time (&begin);
++#endif
++    //soba_wait(2);
++#ifdef TIMING
++    get_time (&end);
++    args->soba_time = time_diff(&end, &begin);
++#endif
++
++    env = get_env();
++    while (iter_next (itr, &val))
++    {
++        emit_inline (env, real_key, val);
++    }
++}
++
+ int 
+ default_partition (int num_reduce_tasks, void* key, int key_size)
+ {
+@@ -1895,5 +2096,5 @@ static void merge (mr_env_t* env)
+ 
+ static inline mr_env_t* get_env (void)
+ {
+-    return (mr_env_t*)pthread_getspecific (env_key);
++    return (mr_env_t*)Pthread_getspecific (env_key);
+ }
+diff --git a/src/taskQ.c b/src/taskQ.c
+index c49ee6e..3fdbb05 100644
+--- a/src/taskQ.c
++++ b/src/taskQ.c
+@@ -30,6 +30,7 @@
+ #include <inttypes.h>
+ #include <string.h>
+ 
++#include "stddefines.h"
+ #include "memory.h"
+ #include "taskQ.h"
+ #include "queue.h"
+@@ -383,11 +384,18 @@ static inline int tq_elem_into_free (
+     taskQ_t* tq, int idx, int tid, queue_elem_t** qe)
+ {
+     int             ret;
+-
++    //struct timeval begin, end;
++    //int time1, time2;
++    //gettimeofday(&begin, NULL);
+     lock_acquire (tq->locks[idx].per_thread[tid]);
++    //gettimeofday(&end, NULL);
++    //time1 = time_diff(&end, &begin);
+     ret = tq_elem_into_free_seq (tq, idx, tid, qe);
++    //gettimeofday(&begin, NULL);
+     lock_release (tq->locks[idx].per_thread[tid]);
+-
++    //gettimeofday(&end, NULL);
++    //time2 = time_diff(&end, &begin);
++    //fprintf(stderr, "LOCK UNLOCK TIME %d, %d\n", time1, time2);
+     return ret;
+ }
+ 
+diff --git a/src/tpool.c b/src/tpool.c
+index 11f32f6..64f765f 100644
+--- a/src/tpool.c
++++ b/src/tpool.c
+@@ -32,11 +32,29 @@
+ #include "memory.h"
+ #include "tpool.h"
+ #include "stddefines.h"
++#include "tern/user.h"
++
++#define REPLACE_SEM
++#define REPLACE_SEM_all
++
++typedef struct {
++    pthread_mutex_t mutex;
++    pthread_cond_t cond_var;
++    int flag;
++} sem_cond;
+ 
+ typedef struct {
+-    sem_t           sem_run;
+     unsigned int    *num_workers_done;
++#ifndef REPLACE_SEM_all
+     sem_t           *sem_all_workers_done;
++#else
++    sem_cond        *sem_all_workers_done;
++#endif
++#ifndef REPLACE_SEM
++    sem_t           sem_run;
++#else
++    sem_cond        sem_run;
++#endif
+     thread_func     *thread_func;
+     void            **thread_func_arg;
+     void            **ret;
+@@ -49,7 +67,11 @@ struct tpool_t {
+     int             num_workers;
+     int             die;
+     thread_func     thread_func;
++#ifndef REPLACE_SEM_all
+     sem_t           sem_all_workers_done;
++#else
++    sem_cond        sem_all_workers_done;
++#endif
+     unsigned int    num_workers_done;
+     void            **args;
+     pthread_t       *threads;
+@@ -84,18 +106,33 @@ tpool_t* tpool_create (int num_threads)
+     if (tpool->thread_args == NULL) 
+         goto fail_thread_args;
+ 
++#ifndef REPLACE_SEM_all
+     ret = sem_init (&tpool->sem_all_workers_done, 0, 0);
+     if (ret != 0) 
+         goto fail_all_workers_done;
++#else
++    pthread_mutex_init(&(tpool->sem_all_workers_done.mutex), NULL);
++    pthread_cond_init(&(tpool->sem_all_workers_done.cond_var), NULL);
++#endif
+ 
+     CHECK_ERROR (pthread_attr_init (&attr));
+     CHECK_ERROR (pthread_attr_setscope (&attr, PTHREAD_SCOPE_SYSTEM));
+     CHECK_ERROR (pthread_attr_setdetachstate (&attr, PTHREAD_CREATE_DETACHED));
+ 
+     tpool->die = 0;
++    soba_init(0, num_threads, num_threads*20);
++    soba_init(1, num_threads, num_threads*20);
++    soba_init(2, num_threads, num_threads*20);
++    soba_init(3, num_threads, num_threads*20);
+     for (i = 0; i < num_threads; ++i) {
+         /* Initialize thread argument. */
++#ifndef REPLACE_SEM
+         CHECK_ERROR (sem_init (&(tpool->thread_args[i].sem_run), 0, 0));
++#else
++        pthread_mutex_init(&(tpool->thread_args[i].sem_run.mutex), NULL);
++        pthread_cond_init(&(tpool->thread_args[i].sem_run.cond_var), NULL);
++        tpool->thread_args[i].sem_run.flag = 0;
++#endif
+         tpool->thread_args[i].sem_all_workers_done = 
+             &tpool->sem_all_workers_done;
+         tpool->thread_args[i].num_workers_done = 
+@@ -166,9 +203,17 @@ int tpool_begin (tpool_t *tpool)
+     tpool->num_workers_done = 0;
+ 
+     for (i = 0; i < tpool->num_workers; ++i) {
++#ifndef REPLACE_SEM
+         ret = sem_post (&(tpool->thread_args[i].sem_run));
+         if (ret != 0) 
+             return -1;
++#else
++        pthread_mutex_lock(&(tpool->thread_args[i].sem_run.mutex));
++        tpool->thread_args[i].sem_run.flag = 1;
++        pthread_cond_signal(&(tpool->thread_args[i].sem_run.cond_var));
++        pthread_mutex_unlock(&(tpool->thread_args[i].sem_run.mutex));
++#endif
++
+     }
+ 
+     return 0;
+@@ -183,9 +228,18 @@ int tpool_wait (tpool_t *tpool)
+     if (tpool->num_workers == 0)
+         return 0;
+ 
++#ifndef REPLACE_SEM_all
+     ret = sem_wait (&tpool->sem_all_workers_done);
+     if (ret != 0) 
+         return -1;
++#else
++    pthread_mutex_lock(&(tpool->sem_all_workers_done.mutex));
++    if (tpool->num_workers != tpool->num_workers_done)
++        pthread_cond_wait(&(tpool->sem_all_workers_done.cond_var), &(tpool->sem_all_workers_done.mutex));
++    pthread_cond_broadcast(&(tpool->sem_all_workers_done.cond_var));
++    pthread_mutex_unlock(&(tpool->sem_all_workers_done.mutex));
++#endif
++
+ 
+     return 0;
+ }
+@@ -223,12 +277,32 @@ int tpool_destroy (tpool_t *tpool)
+         mem_free (tpool->thread_args[i].ret);
+ 
+         tpool->die = 1;
++#ifndef REPLACE_SEM
+         sem_post(&tpool->thread_args[i].sem_run);
++#else
++        pthread_mutex_lock(&(tpool->thread_args[i].sem_run.mutex));
++        tpool->thread_args[i].sem_run.flag = 1;
++        pthread_cond_signal(&(tpool->thread_args[i].sem_run.cond_var));
++        pthread_mutex_unlock(&(tpool->thread_args[i].sem_run.mutex));
++#endif
+     }
+ 
++#ifndef REPLACE_SEM_all
+     sem_wait(&tpool->sem_all_workers_done);
+-
++#else
++    pthread_mutex_lock(&(tpool->sem_all_workers_done.mutex));
++    pthread_cond_wait(&(tpool->sem_all_workers_done.cond_var), &(tpool->sem_all_workers_done.mutex));
++    pthread_cond_broadcast(&(tpool->sem_all_workers_done.cond_var));
++    pthread_mutex_unlock(&(tpool->sem_all_workers_done.mutex));
++#endif
++
++#ifndef REPLACE_SEM_all
+     sem_destroy(&tpool->sem_all_workers_done);
++#else
++    pthread_mutex_destroy(&(tpool->sem_all_workers_done.mutex));
++    pthread_cond_destroy(&(tpool->sem_all_workers_done.cond_var));
++#endif
++
+     mem_free (tpool->args);
+     mem_free (tpool->threads);
+     mem_free (tpool->thread_args);
+@@ -250,7 +324,17 @@ static void* thread_loop (void *arg)
+ 
+     while (1)
+     {
++#ifndef REPLACE_SEM
+         CHECK_ERROR (sem_wait (&thread_arg->sem_run));
++#else
++        pthread_mutex_lock(&(thread_arg->sem_run.mutex));
++        if (thread_arg->sem_run.flag == 0)
++            pthread_cond_wait(&(thread_arg->sem_run.cond_var), &(thread_arg->sem_run.mutex));
++        assert(thread_arg->sem_run.flag == 1);
++        thread_arg->sem_run.flag = 0;
++        pthread_mutex_unlock(&(thread_arg->sem_run.mutex));
++#endif
++
+         if (*thread_arg->die)
+             break;
+ 
+@@ -265,16 +349,33 @@ static void* thread_loop (void *arg)
+         if (num_workers_done == *thread_arg->num_workers)
+         {
+             /* Everybody's done. */
++#ifndef REPLACE_SEM_all
+             CHECK_ERROR (sem_post (thread_arg->sem_all_workers_done));
++#else
++            pthread_mutex_lock(&(thread_arg->sem_all_workers_done->mutex));
++            pthread_cond_broadcast(&(thread_arg->sem_all_workers_done->cond_var));
++            pthread_mutex_unlock(&(thread_arg->sem_all_workers_done->mutex));
++#endif
+         }
+     }
+ 
++#ifndef REPLACE_SEM
+     sem_destroy (&thread_arg->sem_run);
++#else
++    pthread_mutex_destroy(&(thread_arg->sem_run.mutex));
++    pthread_cond_destroy(&(thread_arg->sem_run.cond_var));
++#endif
+     num_workers_done = fetch_and_inc(thread_arg->num_workers_done) + 1;
+     if (num_workers_done == *thread_arg->num_workers)
+     {
+         /* Everybody's done. */
++#ifndef REPLACE_SEM_all
+         CHECK_ERROR (sem_post (thread_arg->sem_all_workers_done));
++#else
++        pthread_mutex_lock(&(thread_arg->sem_all_workers_done->mutex));
++        pthread_cond_broadcast(&(thread_arg->sem_all_workers_done->cond_var));
++        pthread_mutex_unlock(&(thread_arg->sem_all_workers_done->mutex));
++#endif
+     }
+ 
+     return NULL;

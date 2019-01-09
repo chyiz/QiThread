@@ -1,0 +1,81 @@
+--- gcc-5.4.0/libgomp/config/posix/bar.c	2018-07-25 12:08:36.057316887 -0400
++++ gcc-5.4.0-with-patch/libgomp/config/posix/bar.c	2018-07-25 12:20:28.326138143 -0400
+@@ -29,6 +29,7 @@
+    POSIX pthread_barrier_t won't work.  */
+ 
+ #include "libgomp.h"
++#include "tern/user.h"
+ 
+ 
+ void
+@@ -44,6 +45,7 @@
+   bar->arrived = 0;
+   bar->generation = 0;
+   bar->cancellable = false;
++  soba_init((long)bar, count, 20*omp_get_max_threads());
+ }
+ 
+ void
+@@ -59,6 +61,7 @@
+ #endif
+   gomp_sem_destroy (&bar->sem1);
+   gomp_sem_destroy (&bar->sem2);
++  soba_destroy((long)bar);
+ }
+ 
+ void
+@@ -99,8 +103,11 @@
+       gomp_mutex_unlock (&bar->mutex2);
+ #endif
+ 
+-      if (n == 0)
++      if (n == 0){
+ 	gomp_sem_post (&bar->sem2);
++      }else{
++        tern_dummy_sync();
++      }
+     }
+ }
+ 
+@@ -108,6 +115,7 @@
+ gomp_barrier_wait (gomp_barrier_t *barrier)
+ {
+   gomp_barrier_wait_end (barrier, gomp_barrier_wait_start (barrier));
++  soba_wait((long)barrier);
+ }
+ 
+ void
+@@ -166,8 +175,11 @@
+       gomp_mutex_unlock (&bar->mutex2);
+ #endif
+ 
+-      if (n == 0)
++      if (n == 0){
+ 	gomp_sem_post (&bar->sem2);
++      }else{
++        tern_dummy_sync();
++      }
+     }
+ }
+ 
+@@ -238,8 +251,11 @@
+       gomp_mutex_unlock (&bar->mutex2);
+ #endif
+ 
+-      if (n == 0)
++      if (n == 0){
+ 	gomp_sem_post (&bar->sem2);
++      }else{
++        tern_dummy_sync();
++      }
+       if (gen & BAR_CANCELLED)
+ 	return true;
+     }
+@@ -250,6 +266,7 @@
+ gomp_team_barrier_wait (gomp_barrier_t *barrier)
+ {
+   gomp_team_barrier_wait_end (barrier, gomp_barrier_wait_start (barrier));
++  soba_wait((long)barrier);
+ }
+ 
+ void

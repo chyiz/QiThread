@@ -1,0 +1,80 @@
+#!/bin/bash
+
+#
+# Copyright (c) 2013,  Regents of the Columbia University 
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other 
+# materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+# THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR 
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+# LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+# IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+
+
+VER=2.4.33
+# According to Parrot readme.txt in the ldap folder, BerkeleyDB 4.6.21 was used
+DB_VER=4.6.21
+APP_DIR=$XTERN_ROOT/apps/ldap/
+cd $APP_DIR
+rm -rf install openldap-$VER
+rm -rf db-$DB_VER
+rm -rf slapd slapd-mtread
+
+if [ ! -f db-$DB_VER.tar.gz ]; then
+    wget http://download.oracle.com/berkeley-db/db-$DB_VER.tar.gz
+fi
+tar xzvf db-$DB_VER.tar.gz
+
+echo "Installing BerkeleyDB $DB_VER..."
+
+pushd db-$DB_VER/build_unix
+../dist/configure --prefix=/usr/local/BerkeleyDB --sysconfdir=/etc
+make && sudo make install
+sudo sh -c 'echo "/usr/local/BerkeleyDB/lib" >> /etc/ld.so.conf' 
+sudo ldconfig -v
+popd
+
+if [ ! -f openldap-$VER.tgz ]; then
+    wget http://www.openldap.org/software/download/OpenLDAP/openldap-release/openldap-$VER.tgz
+fi
+tar zxvf openldap-$VER.tgz
+
+# Build.
+cd openldap-$VER
+patch -p1 < ../add-resp-to-mtread.patch
+# This patch is only used in model checking evaluation, not necessary for performance evaluation.
+patch -p1 < ../adapt-model-chk-interface.patch
+mkdir obj
+cd obj
+CPPFLAGS="-I/usr/include -I/usr/local/BerkeleyDB/include -I/usr/local/ssl/include" LDFLAGS="-L/usr/lib -L/usr/local/BerkeleyDB/lib -L/usr/local/ssl/lib" ../configure --prefix=$XTERN_ROOT/apps/ldap/install  
+CFLAGS="-g -O0" CXXFLAGS="-g -O0" ../configure --prefix=$XTERN_ROOT/apps/ldap/install
+LD_LIBRARY_PATH=/usr/local/BerkeleyDB/lib:$LD_LIBRARY_PATH
+sudo ldconfig
+make -j4
+make install
+
+# We use this one because it has debug symbols.
+cd $APP_DIR
+ln -s $APP_DIR/xtern-test-mt-hot $APP_DIR/openldap-$VER/tests/scripts/xtern-test-mt-hot
+ln -s $APP_DIR/local.options $APP_DIR/openldap-$VER/obj/tests/local.options
+ln -s $APP_DIR/openldap-$VER/obj/servers/slapd/slapd $APP_DIR/install/libexec/slapd.x86
+cp $APP_DIR/install/etc/openldap/slapd.conf $APP_DIR/install/etc/openldap/slapd.conf.bak
+cp slapd.conf.template $APP_DIR/install/etc/openldap/slapd.conf
+
+# Add benchmark.
+cd openldap-$VER
+patch -p1 < ../only-xtern-test-mt-hot.patch
+patch -p1 < ../only-run-bdb-tests.patch
+cd $APP_DIR
+
+ln -s $APP_DIR/openldap-$VER/obj/servers/slapd/slapd
+ln -s $APP_DIR/openldap-$VER/obj/tests/progs/slapd-mtread

@@ -1,0 +1,21 @@
+# exclude the parsec folder for now
+parsec-3.0
+
+*.gz
+
+
+# binaries
+barnes
+cholesky
+fft
+fmm
+lu_cb
+lu_ncb
+ocean_cp
+ocean_ncp
+radiosity
+radix
+raytrace
+volrend
+water_nsquared
+water_spatial

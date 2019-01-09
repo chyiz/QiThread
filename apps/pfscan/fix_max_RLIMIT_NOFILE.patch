@@ -1,0 +1,13 @@
+--- pfscan-1.0-org/pfscan.c	2018-07-29 22:47:53.121014603 -0400
++++ pfscan-1.0/pfscan.c	2018-07-29 22:51:28.733796169 -0400
+@@ -627,7 +627,9 @@
+ 	exit(1);
+     }
+     
+-    max_depth = rlb.rlim_max - nworkers - 16;
++    // rlb.rlim_max was 4096 in old linux kernel. Newer kernel has 1048576 which will crash the program.
++    //max_depth = rlb.rlim_max - nworkers - 16;
++    max_depth = 4096 - nworkers - 16;
+ 
+     if (debug)
+ 	fprintf(stderr, "max_depth = %d, nworkers = %d\n", max_depth,

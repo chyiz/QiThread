@@ -1,0 +1,133 @@
+--- parsec-2.0-orig/pkgs/apps/fluidanimate/src/pthreads.cpp	2009-01-27 16:27:21.000000000 -0500
++++ parsec-2.0/pkgs/apps/fluidanimate/src/pthreads.cpp	2018-07-28 22:40:42.038436208 -0400
+@@ -10,6 +10,7 @@
+ #include <stdint.h>
+ #include <pthread.h>
+ #include <assert.h>
++#include "tern/user.h"
+ 
+ #ifdef ENABLE_PARSEC_HOOKS
+ #include <hooks.h>
+@@ -272,6 +273,7 @@
+ 	pthread_attr_init(&attr);
+ 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+ 
++    pcs_enter();
+ 	mutex = new pthread_mutex_t *[numCells];
+ 	for(int i = 0; i < numCells; ++i)
+ 	{
+@@ -280,6 +282,8 @@
+ 		for(int j = 0; j < n; ++j)
+ 			pthread_mutex_init(&mutex[i][j], NULL);
+ 	}
++    pcs_exit();
++
+ 	pthread_barrier_init(&barrier, NULL, NUM_GRIDS);
+ 
+ 	cells = new Cell[numCells];
+@@ -438,6 +442,7 @@
+ {
+ 	pthread_attr_destroy(&attr);
+ 
++    pcs_enter();
+ 	for(int i = 0; i < numCells; ++i)
+ 	{
+ 		int n = (border[i] ? 16 : 1);
+@@ -445,6 +450,8 @@
+ 			pthread_mutex_destroy(&mutex[i][j]);
+ 		delete[] mutex[i];
+ 	}
++      pcs_exit();
++
+ 	pthread_barrier_destroy(&barrier);
+ 	delete[] mutex;
+ 
+@@ -773,20 +780,26 @@
+ }
+ 
+ ////////////////////////////////////////////////////////////////////////////////
+-
++int nthreads;
+ void AdvanceFrameMT(int i)
+ {
+ 	ClearParticlesMT(i);
+ 	pthread_barrier_wait(&barrier);
++    pcs_enter();
+ 	RebuildGridMT(i);
++      pcs_barrier_exit(0, nthreads);
+ 	pthread_barrier_wait(&barrier);
+ 	InitDensitiesAndForcesMT(i);
+ 	pthread_barrier_wait(&barrier);
++    pcs_enter();
+ 	ComputeDensitiesMT(i);
++      pcs_barrier_exit(1, nthreads);
+ 	pthread_barrier_wait(&barrier);
+ 	ComputeDensities2MT(i);
+ 	pthread_barrier_wait(&barrier);
++    pcs_enter();
+ 	ComputeForcesMT(i);
++    pcs_barrier_exit(2, nthreads);
+ 	pthread_barrier_wait(&barrier);
+ 	ProcessCollisionsMT(i);
+ 	pthread_barrier_wait(&barrier);
+@@ -844,6 +857,8 @@
+ #ifdef ENABLE_PARSEC_HOOKS
+ 	__parsec_roi_begin();
+ #endif
++	nthreads = threadnum;
++	slock_next_n(threadnum);
+ 	for(int i = 0; i < threadnum; ++i) {
+ 		targs[i].tid = i;
+ 		targs[i].frames = framenum;
+--- parsec-2.0-orig/pkgs/apps/fluidanimate/src/tbb.cpp	2009-02-10 15:08:28.000000000 -0500
++++ parsec-2.0/pkgs/apps/fluidanimate/src/tbb.cpp	2018-07-31 02:19:23.987147880 -0400
+@@ -1426,41 +1426,49 @@
+ {
+ 	void *status;
+ 
++  slock_next_n(NUM_GRIDS);
+ 	for(int i = 0; i < NUM_GRIDS; ++i)
+ 		pthread_create(&thread[i], &attr, ClearParticlesMT, (void *)i);
+ 	for(int i = 0; i < NUM_GRIDS; ++i)
+ 		pthread_join(thread[i], &status);
+ 
++	slock_next_n(NUM_GRIDS);
+ 	for(int i = 0; i < NUM_GRIDS; ++i)
+ 		pthread_create(&thread[i], &attr, RebuildGridMT, (void *)i);
+ 	for(int i = 0; i < NUM_GRIDS; ++i)
+ 		pthread_join(thread[i], &status);
+ 
++	slock_next_n(NUM_GRIDS);
+ 	for(int i = 0; i < NUM_GRIDS; ++i)
+ 		pthread_create(&thread[i], &attr, InitDensitiesAndForcesMT, (void *)i);
+ 	for(int i = 0; i < NUM_GRIDS; ++i)
+ 		pthread_join(thread[i], &status);
+ 
++	slock_next_n(NUM_GRIDS);
+ 	for(int i = 0; i < NUM_GRIDS; ++i)
+ 		pthread_create(&thread[i], &attr, ComputeDensitiesMT, (void *)i);
+ 	for(int i = 0; i < NUM_GRIDS; ++i)
+ 		pthread_join(thread[i], &status);
+ 
++	slock_next_n(NUM_GRIDS);
+ 	for(int i = 0; i < NUM_GRIDS; ++i)
+ 		pthread_create(&thread[i], &attr, ComputeDensities2MT, (void *)i);
+ 	for(int i = 0; i < NUM_GRIDS; ++i)
+ 		pthread_join(thread[i], &status);
+ 
++	slock_next_n(NUM_GRIDS);
+ 	for(int i = 0; i < NUM_GRIDS; ++i)
+ 		pthread_create(&thread[i], &attr, ComputeForcesMT, (void *)i);
+ 	for(int i = 0; i < NUM_GRIDS; ++i)
+ 		pthread_join(thread[i], &status);
+ 
++	slock_next_n(NUM_GRIDS);
+ 	for(int i = 0; i < NUM_GRIDS; ++i)
+ 		pthread_create(&thread[i], &attr, ProcessCollisionsMT, (void *)i);
+ 	for(int i = 0; i < NUM_GRIDS; ++i)
+ 		pthread_join(thread[i], &status);
+ 
++	slock_next_n(NUM_GRIDS);
+ 	for(int i = 0; i < NUM_GRIDS; ++i)
+ 		pthread_create(&thread[i], &attr, AdvanceParticlesMT, (void *)i);
+ 	for(int i = 0; i < NUM_GRIDS; ++i)

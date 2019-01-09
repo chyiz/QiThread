@@ -1,0 +1,36 @@
+--- parsec-3.0-bak/ext/splash2x/kernels/radix/src/radix.C	2013-07-28 10:39:58.000000000 -0400
++++ parsec-3.0/ext/splash2x/kernels/radix/src/radix.C	2018-06-15 01:14:19.986657561 -0400
+@@ -442,6 +442,8 @@
+    long base;
+    long offset;
+ 
++   struct timeval begin, end;
++
+    stats = dostats;
+ 
+    LOCK(global->lock_Index)
+@@ -449,6 +451,8 @@
+      global->Index++;
+    UNLOCK(global->lock_Index)
+ 
++   gettimeofday(&begin, NULL);
++
+    BARINCLUDE(global->barrier_key);
+    BARINCLUDE(global->barrier_rank);
+ 
+@@ -470,6 +474,15 @@
+    init(key_start,key_stop,from);
+ 
+    BARRIER(global->barrier_key, number_of_processors) 
++   gettimeofday(&end, NULL);
++
++   {
++     double sec = difftime(&end, &begin);
++     printf("Time taken in init: %.5f\n",
++            (double)end.tv_sec + 1e-6*end.tv_usec-
++            (double)begin.tv_sec - 1e-6*begin.tv_usec);
++
++   }
+ 
+ /* POSSIBLE ENHANCEMENT:  Here is where one might reset the
+    statistics that one is measuring about the parallel execution */

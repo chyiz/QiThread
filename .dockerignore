@@ -1,0 +1,17 @@
+# itself
+Dockerfile
+
+# Binaries
+/obj
+*.o
+*.so
+*.a
+*.pyc
+
+# Logs
+*.log
+dmt_out
+
+# config file
+local.options.d
+

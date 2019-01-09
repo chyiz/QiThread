@@ -1,0 +1,18 @@
+--- parsec-2.0-orig/pkgs/apps/raytrace/src/RTTL/common/RTThread.hxx	2009-02-11 16:04:29.000000000 -0500
++++ parsec-2.0/pkgs/apps/raytrace/src/RTTL/common/RTThread.hxx	2018-07-31 03:25:38.306665038 -0400
+@@ -4,6 +4,7 @@
+ #include "RTInclude.hxx"
+ 
+ #include <pthread.h>
++#include "tern/user.h"
+ 
+ #if !defined(_WIN32)
+ 
+@@ -225,6 +226,7 @@
+     m_thread = aligned_malloc<pthread_t>(m_threads);
+     init_barrier(m_threads);
+     int res;
++    slock_next_n(m_threads);
+     for (int i=0;i<m_threads;i++)
+       if ( (res = pthread_create(&m_thread[i],NULL,threadFunc,this)) != 0)
+         {

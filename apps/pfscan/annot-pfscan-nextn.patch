@@ -1,0 +1,10 @@
+--- pfscan-1.0-bak/pfscan.c	2018-08-04 02:11:44.177291240 -0400
++++ pfscan-1.0/pfscan.c	2018-08-04 02:11:54.549498617 -0400
+@@ -640,6 +640,7 @@
+ 
+     aworkers = nworkers;
+     
++	slock_next_n(nworkers);
+     for (j = 0; j < nworkers; ++j)
+ 	if (pthread_create(&tid[j], &pab, worker, NULL) != 0)
+ 	{

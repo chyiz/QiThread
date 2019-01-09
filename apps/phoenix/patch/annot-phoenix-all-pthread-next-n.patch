@@ -1,0 +1,225 @@
+--- phoenix-2.0.0-orig/tests/pca/pca-pthread.c	2018-07-07 23:43:34.603813006 -0400
++++ phoenix-2.0.0/tests/pca/pca-pthread.c	2018-07-07 23:59:05.099832222 -0400
+@@ -35,6 +35,7 @@
+ #include <math.h>
+ #include <pthread.h>
+ #include "stddefines.h"
++#include "tern/user.h"
+ 
+ #define DEF_GRID_SIZE 100  // all values in the matrix are from 0 to this value 
+ #define DEF_NUM_ROWS 10
+@@ -135,6 +136,7 @@
+  *  Compute the mean for the rows allocated to a thread
+  */
+ void *calc_mean(void *arg) {
++   soba_wait(0);
+    int i, j;
+    int sum = 0;
+    mean_arg_t *mean_arg = (mean_arg_t *)arg;
+@@ -164,6 +166,7 @@
+    pthread_mutex_unlock(&row_lock);
+    
+    while (i < num_rows) {
++      soba_wait(0);
+       for (j = i; j < num_rows; j++) {
+          sum = 0;
+          for (k = 0; k < num_cols; k++) {
+@@ -205,6 +208,8 @@
+    int curr_row = 0;
+    
+    /* Assign rows to each thread. One thread per processor */
++   soba_init(0, num_procs, num_procs*20);
++   slock_next_n(num_procs);
+    for(i=0; i<num_procs; i++){
+       mean_args[i].first_row = curr_row;
+       mean_args[i].last_row = curr_row + rows_per_thread;
+--- phoenix-2.0.0-orig/tests/kmeans/kmeans-pthread.c	2018-07-07 23:43:34.603813006 -0400
++++ phoenix-2.0.0/tests/kmeans/kmeans-pthread.c	2018-07-07 23:59:59.596960319 -0400
+@@ -37,6 +37,7 @@
+ 
+ #include "stddefines.h"
+ #include "map_reduce.h"
++#include "tern/user.h"
+ 
+ #define DEF_NUM_POINTS 100000
+ #define DEF_NUM_MEANS 100
+@@ -175,6 +176,7 @@
+  */
+ void *find_clusters(void *arg) 
+ {
++   soba_wait(0);
+    thread_arg *t_arg = (thread_arg *)arg;
+    int i, j;
+    unsigned int min_dist, cur_dist;
+@@ -211,6 +213,7 @@
+  */
+ void *calc_means(void *arg)
+ {
++   soba_wait(0);
+    int i, j, grp_size;
+    int *sum;
+    thread_arg *t_arg = (thread_arg *)arg;
+@@ -291,6 +294,7 @@
+    /* Create the threads to process the distances between the various
+    points and repeat until modified is no longer valid */
+    int num_threads;   
++   soba_init(0, num_procs, num_procs*20);
+    while (modified) 
+    {
+       num_per_thread = num_points / num_procs;
+@@ -299,7 +303,8 @@
+       dprintf(".");
+       curr_point = 0;
+       num_threads = 0;
+-      
++
++      slock_next_n(num_procs);
+       while (curr_point < num_points) {
+          CHECK_ERROR((arg = (thread_arg *)malloc(sizeof(thread_arg))) == NULL);
+          arg->start_idx = curr_point;
+@@ -322,6 +327,8 @@
+       excess = num_means % num_procs;
+       curr_point = 0;
+       num_threads = 0;
++
++      slock_next_n(num_procs);
+       while (curr_point < num_means) {
+          CHECK_ERROR((arg = (thread_arg *)malloc(sizeof(thread_arg))) == NULL);
+          arg->start_idx = curr_point;
+--- phoenix-2.0.0-orig/tests/string_match/string_match-pthread.c	2018-07-07 23:43:34.603813006 -0400
++++ phoenix-2.0.0/tests/string_match/string_match-pthread.c	2018-07-07 23:58:27.115044470 -0400
+@@ -43,6 +43,7 @@
+ 
+ #include "map_reduce.h"
+ #include "stddefines.h"
++#include "tern/user.h"
+ 
+ #define DEFAULT_UNIT_SIZE 5
+ #define SALT_SIZE 2
+@@ -160,6 +161,8 @@
+                                                                                         * num_procs);
+     map_args_t* out = (map_args_t*)malloc(sizeof(map_args_t) * num_procs);
+ 
++    soba_init(0, num_procs, num_procs*20);
++    slock_next_n(num_procs);
+     for(i=0; i<num_procs; i++)
+     {
+ 	    map_data[i].encrypt_file = data->encrypt_file;
+@@ -218,6 +221,7 @@
+  */
+ void *string_match_map(void *args)
+ {
++    soba_wait(0);
+     assert(args);
+     
+     str_map_data_t* data_in = (str_map_data_t*)( ((map_args_t*)args)->data);
+--- phoenix-2.0.0-orig/tests/linear_regression/linear_regression-pthread.c	2018-07-07 23:43:34.603813006 -0400
++++ phoenix-2.0.0/tests/linear_regression/linear_regression-pthread.c	2018-07-07 23:59:43.252622236 -0400
+@@ -39,6 +39,7 @@
+ #include <ctype.h>
+ 
+ #include "stddefines.h"
++#include "tern/user.h"
+ 
+ typedef struct {
+    char x;
+@@ -62,6 +63,7 @@
+  */
+ void *linear_regression_pthread(void *args_in) 
+ {
++  soba_wait(0);
+    lreg_args* args =(lreg_args*)args_in;
+    int i;
+ 
+@@ -133,6 +135,8 @@
+    tid_args = (lreg_args *)CALLOC(sizeof(lreg_args), num_procs); 
+ 
+ 	 // Assign a portion of the points for each thread
++   soba_init(0, num_threads, num_threads*20);
++   slock_next_n(num_threads);
+    for(i = 0; i < num_threads; i++)
+    {
+ 	   tid_args[i].points = &points[i*req_units];
+--- phoenix-2.0.0-orig/tests/histogram/histogram-pthread.c	2018-07-07 23:43:34.603813006 -0400
++++ phoenix-2.0.0/tests/histogram/histogram-pthread.c	2018-07-08 00:00:17.049321098 -0400
+@@ -38,6 +38,7 @@
+ #include <pthread.h>
+ 
+ #include "stddefines.h"
++#include "tern/user.h"
+ 
+ #define IMG_DATA_OFFSET_POS 10
+ #define BITS_PER_PIXEL_POS 28
+@@ -93,7 +94,7 @@
+  * assigned to each thread
+  */
+ void *calc_hist(void *arg) {
+-   
++   soba_wait(0);
+    int *red;
+    int *green;
+    int *blue;
+@@ -214,6 +215,8 @@
+    
+    /* Assign portions of the image to each thread */
+    long curr_pos = (long)(*data_pos);
++   soba_init(0, num_procs, num_procs*20);
++   slock_next_n(num_procs);
+    for (i = 0; i < num_procs; i++) {
+       arg[i].data = (unsigned char *)fdata;
+       arg[i].data_pos = curr_pos;
+--- phoenix-2.0.0-orig/tests/word_count/word_count-pthread.c	2018-07-07 23:43:34.603813006 -0400
++++ phoenix-2.0.0/tests/word_count/word_count-pthread.c	2018-07-07 23:58:49.027499057 -0400
+@@ -40,6 +40,7 @@
+ 
+ #include "stddefines.h"
+ #include "sort-pthread.h"
++#include "tern/user.h"
+ 
+ #define DEFAULT_DISP_NUM 10
+ #define START_ARRAY_SIZE 2000
+@@ -137,6 +138,8 @@
+ 
+    int req_bytes = data->flen / num_procs;
+ 
++   soba_init(0, num_procs, num_procs*20);
++   slock_next_n(num_procs);
+    for(i=0; i<num_procs; i++)
+    {
+       words[i] = (wc_count_t*)malloc(START_ARRAY_SIZE*sizeof(wc_count_t));
+@@ -229,6 +232,7 @@
+  */
+ void *wordcount_map(void *args_in) 
+ {
++   soba_wait(0);
+ 	t_args_t* args = (t_args_t*)args_in;
+ 
+    char *curr_start, curr_ltr;
+--- phoenix-2.0.0-orig/tests/matrix_multiply/matrix_multiply-pthread.c	2018-07-07 23:43:34.603813006 -0400
++++ phoenix-2.0.0/tests/matrix_multiply/matrix_multiply-pthread.c	2018-07-07 23:59:22.168185796 -0400
+@@ -42,6 +42,7 @@
+ 
+ #include "map_reduce.h"
+ #include "stddefines.h"
++#include "tern/user.h"
+ 
+ typedef struct {
+     int row_num;
+@@ -88,7 +89,8 @@
+ 
+     int req_rows = data->matrix_len / num_procs;
+ 
+-
++    soba_init(0, num_procs, num_procs*20);
++    slock_next_n(num_procs);
+     for(i=0; i<num_procs; i++)
+     {
+ 	    map_args_t* out = (map_args_t*)malloc(sizeof(map_args_t));
+@@ -124,6 +126,7 @@
+  */
+ void *matrixmult_map(void *args_in)
+ {
++    soba_wait(0);
+     map_args_t* args = (map_args_t*)args_in;
+ 
+     int row_count = 0;

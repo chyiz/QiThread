@@ -1,0 +1,14 @@
+# binaries
+/annot-bench3n-all-nextn.patch
+/bdbHashThreaded
+/bench3n
+/rep_base
+/rep_mgr
+
+# out folders
+/db-5.3.15*/
+/install/
+/libdb-3n/
+/statis-benchmarks/
+
+db-5.3.15.tar.gz

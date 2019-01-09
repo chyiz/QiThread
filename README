@@ -1,0 +1,92 @@
+Hardware and software requirements:
+================
+Hardware: We conducted our experiments on a machine with two Xeon
+    E5-2670 processors and 128GB memory. While our code should be
+    runnable on any multi-core machines, we recommend a similar CPU
+    and memory configuration. Notably, applications are sometimes
+    configured to create 24 threads in our experiments.
+OS: Ubuntu 16.04, 64 bit. This is the version we used to compile
+    QITHREAD and all our benchmarks, and the scripts provided in this
+    zip files have been tested on this OS version.
+Other Software: Instructions to install extra libraries and tools are
+    provided below.
+
+A note on the name "XTERN" and copyright issues
+================
+Our library is developed based on Parrot from 
+https://github.com/columbia/xtern
+, and XTERN is the name used during Parrot's development. We did not 
+change the code name. Also, we will add more copyright note into our 
+code and other documents before publicly sharing our code.
+
+Build a Docker image
+================
+In the project root folder, run 
+> sudo docker build -t qithread .
+to build a docker image. It will take about two hours to download and 
+compile all necessary programs and input data.
+
+After that, a docker image will be available with tag qithread. You 
+may run it with 
+> sudo docker run -it qithread
+You will enter an BASH shell at /home/qithread/qithread-ae/eval folder. 
+You can then skip to the "Generate evaluation results" section to run 
+the evaluation script.
+
+
+Compiling QITHREAD and Benchmarks
+================
+Alternatively, you may built the project directly. The build script are 
+tested under Ubuntu 16.04 and may not work on other Linux distributions.
+
+0. Install some libraries/tools.
+> sudo apt-get install build-essential gcc-5 g++-5 gcc-4.7 g++-4.7 m4 \
+pkg-config python-pip python-setuptools python-dev python3-pip unzip git wget
+> sudo apt-get install gcc-multilib g++-multilib libboost-dev \
+libtiff5-dev libbz2-dev libmp3lame-dev libxslt1-dev libxml2-dev \
+zlib1g-dev libxml-libxml-perl libgomp1 libgmp-dev libmpfr-dev \
+libmpc-dev libxi-dev libxmu-dev freeglut3-dev gettext \
+libjasper-runtime libjasper-dev
+> sudo pip3 install numpy
+
+1. Add $XTERN_ROOT (the absolute path of "xtern") into environment
+variables by running
+> source env.sh
+in the QITHREAD root library.
+
+2. Run the build script to build everything
+> cd $XTERN_ROOT
+> ./buildall.sh
+
+Generate evaluation results
+================
+In $XTERN_ROOT/eval folder, simply run 
+> ./eval_policy.py all-default-config.cfg
+Evaluating all benchmarks will take about a couple of days (around 2
+on our platform) to finish.
+
+The evaluation results will be saved to the
+all-default-config<Execution Date and Time>_<git commit> folder.
+A symbolic link current is also modified to always point to the last
+evaluation results.
+
+To extract all results into one file, run
+> ./get_all_results.sh current/ > results.csv
+
+Replace "current" with the folder name that contains evaluation results 
+if you are exporting older evaluations. Do not forget the slash after the 
+folder name.
+
+The results is a comma separated values (csv) file that can then be
+imported to a spreadsheet.
+
+At last, to generate the graphs used in our paper, open 
+generate-figure.ipynb in the eval folder with Jupyter Notebook.
+It will load results.csv in the same folder by default. 
+
+Running an individual application
+================
+You may extract a single test case from $XTERN_ROOT/eval/all-default-config.cfg 
+and save to another file, and then run it with the same evaluation script:
+> ./eval_policy.py <your configuration file>
+

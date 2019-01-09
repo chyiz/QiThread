@@ -1,0 +1,11 @@
+--- parsec-2.0-orig/pkgs/apps/raytrace/parsec/gcc-pthreads.bldconf	2009-02-09 23:06:47.000000000 -0500
++++ parsec-2.0/pkgs/apps/raytrace/parsec/gcc-pthreads.bldconf	2018-07-31 03:23:39.552287391 -0400
+@@ -21,7 +21,7 @@
+ # NOTE: By default PARSEC links raytrace to mesa with Xlib driver so that all
+ #       computations are done by the CPU. This requires to also link to the X
+ #       libraries and the pthreads library.
+-build_env="CXXFLAGS=\"-I${PARSECDIR}/pkgs/libs/mesa/inst/${PARSECPLAT}/include ${CXXFLAGS} -fexceptions -fno-strict-aliasing -fno-align-labels -DNDEBUG -D_MM_NO_ALIGN_CHECK\" LDFLAGS=\"-L${PARSECDIR}/pkgs/libs/mesa/inst/${PARSECPLAT}/lib ${LDFLAGS}\" LIBS=\"${LIBS} -lXmu -lX11 -lGL -lGLU -lpthread\""
++build_env="CXXFLAGS=\"-I${PARSECDIR}/pkgs/libs/mesa/inst/${PARSECPLAT}/include ${CXXFLAGS} -fexceptions -fno-strict-aliasing -fno-align-labels -DNDEBUG -D_MM_NO_ALIGN_CHECK\" LDFLAGS=\"-L${PARSECDIR}/pkgs/libs/mesa/inst/${PARSECPLAT}/lib ${LDFLAGS}\" LIBS=\"${LIBS} -lXmu -lX11 -lXext -lGL -lGLU -lpthread\""
+ 
+ # Whether the build system supports only in-place compilation.
+ # If TRUE, then all sources will be copied to the build directory before we

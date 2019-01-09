@@ -1,0 +1,361 @@
+bench, config, avg_time, sem, overhead, all times...
+parsec streamcluster, non-det,48.313,0,0%,48.313
+parsec streamcluster, xtern-no-hint,51.771,0,7.157%,51.771
+parsec streamcluster, xtern-hinted,53.318,0,10.360%,53.318
+parsec streamcluster,xtern-all-policies,46.434,0,-3.889%,46.434
+stl replace_if, non-det,12.043,0,0%,12.043
+stl replace_if, xtern-no-hint,32.193,0,167.317%,32.193
+stl replace_if, xtern-hinted,13.126,0,8.993%,13.126
+stl replace_if,xtern-all-policies,15.965,0,32.567%,15.965
+stl search_n_not_found, non-det,17.022,0,0%,17.022
+stl search_n_not_found, xtern-no-hint,104.375,0,513.177%,104.375
+stl search_n_not_found, xtern-hinted,18.688,0,9.787%,18.688
+stl search_n_not_found,xtern-all-policies,18.386,0,8.013%,18.386
+stl sort, non-det,73.921,0,0%,73.921
+stl sort, xtern-no-hint,347.75,0,370.435%,347.75
+stl sort, xtern-hinted,119.584,0,61.773%,119.584
+stl sort,xtern-all-policies,117.973,0,59.593%,117.973
+splash2x cholesky, non-det,0.141,0,0%,0.141
+splash2x cholesky, xtern-no-hint,0.453,0,221.277%,0.453
+splash2x cholesky, xtern-hinted,0.172,0,21.986%,0.172
+splash2x cholesky,xtern-all-policies,0.403,0,185.816%,0.403
+parsec blackscholes, non-det,12.733,0,0%,12.733
+parsec blackscholes, xtern-no-hint,12.962,0,1.798%,12.962
+parsec blackscholes, xtern-hinted,13.003,0,2.120%,13.003
+parsec blackscholes,xtern-all-policies,13.377,0,5.058%,13.377
+aget, non-det,0.987,0,0%,0.987
+aget, xtern-no-hint,1.124,0,13.880%,1.124
+aget,xtern-all-policies,1.089,0,10.334%,1.089
+stl set_symmetric_difference, non-det,12.354,0,0%,12.354
+stl set_symmetric_difference, xtern-no-hint,19.383,0,56.897%,19.383
+stl set_symmetric_difference, xtern-hinted,12.625,0,2.194%,12.625
+stl set_symmetric_difference,xtern-all-policies,12.573,0,1.773%,12.573
+phoenix histogram, non-det,0.318,0,0%,0.318
+phoenix histogram, xtern-no-hint,4.302,0,1252.830%,4.302
+phoenix histogram, xtern-hinted,0.565,0,77.673%,0.565
+phoenix histogram,xtern-all-policies,0.404,0,27.044%,0.404
+npb bt-l, non-det,5.065,0,0%,5.065
+npb bt-l, xtern-no-hint,95.615,0,1787.759%,95.615
+npb bt-l, xtern-hinted,5.647,0,11.491%,5.647
+npb bt-l,xtern-all-policies,4.811,0,-5.015%,4.811
+phoenix histogram-pthread, non-det,0.255,0,0%,0.255
+phoenix histogram-pthread, xtern-no-hint,3.934,0,1442.745%,3.934
+phoenix histogram-pthread, xtern-hinted,0.297,0,16.471%,0.297
+phoenix histogram-pthread,xtern-all-policies,0.31,0,21.569%,0.31
+phoenix pca-pthread, non-det,1.313,0,0%,1.313
+phoenix pca-pthread, xtern-no-hint,4.021,0,206.245%,4.021
+phoenix pca-pthread, xtern-hinted,1.522,0,15.918%,1.522
+phoenix pca-pthread,xtern-all-policies,1.577,0,20.107%,1.577
+splash2x lu_ncb, non-det,13.695,0,0%,13.695
+splash2x lu_ncb, xtern-no-hint,14.628,0,6.813%,14.628
+splash2x lu_ncb,xtern-all-policies,14.9,0,8.799%,14.9
+stl count, non-det,12.466,0,0%,12.466
+stl count, xtern-no-hint,23.667,0,89.852%,23.667
+stl count, xtern-hinted,12.673,0,1.661%,12.673
+stl count,xtern-all-policies,10.317,0,-17.239%,10.317
+stl find_first_of_not_found, non-det,15.778,0,0%,15.778
+stl find_first_of_not_found, xtern-no-hint,34.514,0,118.748%,34.514
+stl find_first_of_not_found, xtern-hinted,15.836,0,0.368%,15.836
+stl find_first_of_not_found,xtern-all-policies,16.804,0,6.503%,16.804
+parsec bodytrack-openmp, non-det,44.317,0,0%,44.317
+parsec bodytrack-openmp, xtern-no-hint,170.819,0,285.448%,170.819
+parsec bodytrack-openmp, xtern-hinted,29.135,0,-34.258%,29.135
+parsec bodytrack-openmp,xtern-all-policies,37.767,0,-14.780%,37.767
+phoenix pca, non-det,1.206,0,0%,1.206
+phoenix pca, xtern-no-hint,8.83,0,632.172%,8.83
+phoenix pca, xtern-hinted,4.171,0,245.854%,4.171
+phoenix pca,xtern-all-policies,1.959,0,62.438%,1.959
+stl find_if_not_found, non-det,18.828,0,0%,18.828
+stl find_if_not_found, xtern-no-hint,30.743,0,63.283%,30.743
+stl find_if_not_found, xtern-hinted,16.768,0,-10.941%,16.768
+stl find_if_not_found,xtern-all-policies,14.779,0,-21.505%,14.779
+phoenix linear_regression-pthread, non-det,8.622,0,0%,8.622
+phoenix linear_regression-pthread, xtern-no-hint,5.111,0,-40.721%,5.111
+phoenix linear_regression-pthread, xtern-hinted,0.517,0,-94.004%,0.517
+phoenix linear_regression-pthread,xtern-all-policies,0.452,0,-94.758%,0.452
+"parsec rtview ""raytrace""", non-det,79.152,0,0%,79.152
+"parsec rtview ""raytrace""", xtern-no-hint,188.01,0,137.530%,188.01
+"parsec rtview ""raytrace""", xtern-hinted,186.243,0,135.298%,186.243
+"parsec rtview ""raytrace""",xtern-all-policies,80.232,0,1.364%,80.232
+bdb_rep bench3n, non-det,2.252,0,0%,2.252
+bdb_rep bench3n, xtern-no-hint,2.798,0,24.245%,2.798
+bdb_rep bench3n,xtern-all-policies,2.614,0,16.075%,2.614
+bdb_rep bench3n, xtern-nextn,2.808,0,24.689%,2.808
+stl stable_sort, non-det,106.648,0,0%,106.648
+stl stable_sort, xtern-no-hint,468.42,0,339.221%,468.42
+stl stable_sort, xtern-hinted,137.186,0,28.634%,137.186
+stl stable_sort,xtern-all-policies,142.646,0,33.754%,142.646
+parsec dedup, non-det,14.509,0,0%,14.509
+parsec dedup, xtern-no-hint,50.472,0,247.867%,50.472
+parsec dedup, xtern-hinted,47.116,0,224.736%,47.116
+parsec dedup,xtern-all-policies,43.917,0,202.688%,43.917
+stl random_shuffle, non-det,38.075,0,0%,38.075
+stl random_shuffle, xtern-no-hint,299.044,0,685.408%,299.044
+stl random_shuffle, xtern-hinted,37.357,0,-1.886%,37.357
+stl random_shuffle,xtern-all-policies,37.119,0,-2.511%,37.119
+phoenix word_count-pthread, non-det,0.716,0,0%,0.716
+phoenix word_count-pthread, xtern-no-hint,10.48,0,1363.687%,10.48
+phoenix word_count-pthread, xtern-hinted,0.865,0,20.810%,0.865
+phoenix word_count-pthread,xtern-all-policies,0.891,0,24.441%,0.891
+stl generate, non-det,11.411,0,0%,11.411
+stl generate, xtern-no-hint,20.983,0,83.884%,20.983
+stl generate, xtern-hinted,12.815,0,12.304%,12.815
+stl generate,xtern-all-policies,12.43,0,8.930%,12.43
+parsec vips, non-det,13.174,0,0%,13.174
+parsec vips, xtern-no-hint,112.578,0,754.547%,112.578
+parsec vips, xtern-hinted,18.725,0,42.136%,18.725
+parsec vips,xtern-all-policies,110.806,0,741.096%,110.806
+stl set_intersection, non-det,57.284,0,0%,57.284
+stl set_intersection, xtern-no-hint,99.764,0,74.157%,99.764
+stl set_intersection, xtern-hinted,52.625,0,-8.133%,52.625
+stl set_intersection,xtern-all-policies,50.34,0,-12.122%,50.34
+parsec swaptions, non-det,54.864,0,0%,54.864
+parsec swaptions, xtern-no-hint,504.287,0,819.158%,504.287
+parsec swaptions, xtern-hinted,56.291,0,2.601%,56.291
+parsec swaptions,xtern-all-policies,56.016,0,2.100%,56.016
+parsec canneal, non-det,61.337,0,0%,61.337
+parsec canneal, xtern-no-hint,60.688,0,-1.058%,60.688
+parsec canneal, xtern-hinted,62.081,0,1.213%,62.081
+parsec canneal,xtern-all-policies,60.63,0,-1.153%,60.63
+npb ft-l, non-det,4.572,0,0%,4.572
+npb ft-l, xtern-no-hint,80.153,0,1653.128%,80.153
+npb ft-l, xtern-hinted,4.703,0,2.865%,4.703
+npb ft-l,xtern-all-policies,4.429,0,-3.128%,4.429
+stl transform, non-det,23.9,0,0%,23.9
+stl transform, xtern-no-hint,39.952,0,67.163%,39.952
+stl transform, xtern-hinted,25.463,0,6.540%,25.463
+stl transform,xtern-all-policies,24.99,0,4.561%,24.99
+parsec fluidanimate, non-det,34.958,0,0%,34.958
+parsec fluidanimate, xtern-no-hint,3251.963,0,9202.486%,3251.963
+parsec fluidanimate, xtern-hinted,53.772,0,53.819%,53.772
+parsec fluidanimate,xtern-all-policies,2319.94,0,6536.364%,2319.94
+splash2x water_spatial, non-det,16.034,0,0%,16.034
+splash2x water_spatial, xtern-no-hint,18.862,0,17.638%,18.862
+splash2x water_spatial,xtern-all-policies,17.532,0,9.343%,17.532
+stl merge, non-det,23.5,0,0%,23.5
+stl merge, xtern-no-hint,39.904,0,69.804%,39.904
+stl merge, xtern-hinted,24.497,0,4.243%,24.497
+stl merge,xtern-all-policies,24.048,0,2.332%,24.048
+stl lexicographical_compare, non-det,29.876,0,0%,29.876
+stl lexicographical_compare, xtern-no-hint,44.385,0,48.564%,44.385
+stl lexicographical_compare, xtern-hinted,27.431,0,-8.184%,27.431
+stl lexicographical_compare,xtern-all-policies,29.651,0,-0.753%,29.651
+splash2x fft, non-det,70.235,0,0%,70.235
+splash2x fft, xtern-no-hint,69.532,0,-1.001%,69.532
+splash2x fft,xtern-all-policies,70.877,0,0.914%,70.877
+stl for_each, non-det,12.246,0,0%,12.246
+stl for_each, xtern-no-hint,23.465,0,91.614%,23.465
+stl for_each, xtern-hinted,11.588,0,-5.373%,11.588
+stl for_each,xtern-all-policies,12.664,0,3.413%,12.664
+phoenix kmeans-pthread, non-det,0.745,0,0%,0.745
+phoenix kmeans-pthread, xtern-no-hint,6.944,0,832.081%,6.944
+phoenix kmeans-pthread, xtern-hinted,0.868,0,16.510%,0.868
+phoenix kmeans-pthread,xtern-all-policies,0.825,0,10.738%,0.825
+npb lu-l, non-det,6.898,0,0%,6.898
+npb lu-l, xtern-no-hint, nan,-1, nan%, 
+npb lu-l, xtern-hinted,4.419,0,-35.938%,4.419
+npb lu-l,xtern-all-policies,3.363,0,-51.247%,3.363
+phoenix linear_regression, non-det,0.317,0,0%,0.317
+phoenix linear_regression, xtern-no-hint,3.498,0,1003.470%,3.498
+phoenix linear_regression, xtern-hinted,0.593,0,87.066%,0.593
+phoenix linear_regression,xtern-all-policies,0.425,0,34.069%,0.425
+splash2x ocean_cp, non-det,24.218,0,0%,24.218
+splash2x ocean_cp, xtern-no-hint,19.258,0,-20.481%,19.258
+splash2x ocean_cp,xtern-all-policies,16.404,0,-32.265%,16.404
+phoenix string_match-pthread, non-det,0.52,0,0%,0.52
+phoenix string_match-pthread, xtern-no-hint,10.238,0,1868.846%,10.238
+phoenix string_match-pthread, xtern-hinted,0.724,0,39.231%,0.724
+phoenix string_match-pthread,xtern-all-policies,0.606,0,16.538%,0.606
+splash2x ocean_ncp, non-det,31.606,0,0%,31.606
+splash2x ocean_ncp, xtern-no-hint,21.803,0,-31.016%,21.803
+splash2x ocean_ncp,xtern-all-policies,21.441,0,-32.162%,21.441
+stl count_if, non-det,12.609,0,0%,12.609
+stl count_if, xtern-no-hint,31.644,0,150.964%,31.644
+stl count_if, xtern-hinted,13.357,0,5.932%,13.357
+stl count_if,xtern-all-policies,11.402,0,-9.573%,11.402
+stl accumulate, non-det,10.06,0,0%,10.06
+stl accumulate, xtern-no-hint,26.033,0,158.777%,26.033
+stl accumulate, xtern-hinted,10.78,0,7.157%,10.78
+stl accumulate,xtern-all-policies,10.685,0,6.213%,10.685
+stl unique_copy, non-det,23.958,0,0%,23.958
+stl unique_copy, xtern-no-hint,40.483,0,68.975%,40.483
+stl unique_copy, xtern-hinted,20.045,0,-16.333%,20.045
+stl unique_copy,xtern-all-policies,20.035,0,-16.374%,20.035
+splash2x raytrace, non-det,9.257,0,0%,9.257
+splash2x raytrace, xtern-no-hint,250.784,0,2609.128%,250.784
+splash2x raytrace, xtern-hinted,10.933,0,18.105%,10.933
+splash2x raytrace,xtern-all-policies,63.964,0,590.980%,63.964
+pbzip2 'decompress', non-det,2.525,0,0%,2.525
+pbzip2 'decompress', xtern-no-hint,8.243,0,226.455%,8.243
+pbzip2 'decompress', xtern-hinted,2.732,0,8.198%,2.732
+pbzip2 'decompress',xtern-all-policies,2.537,0,0.475%,2.537
+mplayer mencoder, non-det,346.567,0,0%,346.567
+mplayer mencoder, xtern-no-hint,396.089,0,14.289%,396.089
+mplayer mencoder, xtern-hinted,239.57,0,-30.873%,239.57
+mplayer mencoder, xtern-hpq,397.151,0,14.596%,397.151
+mplayer mencoder,xtern-all-policies,229.33,0,-33.828%,229.33
+mplayer mencoder, xtern-hpq+nextn+csf,228.526,0,-34.060%,228.526
+stl find_not_found, non-det,16.036,0,0%,16.036
+stl find_not_found, xtern-no-hint,28.387,0,77.020%,28.387
+stl find_not_found, xtern-hinted,16.056,0,0.125%,16.056
+stl find_not_found,xtern-all-policies,16.106,0,0.437%,16.106
+splash2x volrend, non-det,33.751,0,0%,33.751
+splash2x volrend, xtern-no-hint,82.54,0,144.556%,82.54
+splash2x volrend,xtern-all-policies,56.487,0,67.364%,56.487
+stl nth_element, non-det,18.298,0,0%,18.298
+stl nth_element, xtern-no-hint,40.38,0,120.680%,40.38
+stl nth_element, xtern-hinted,19.48,0,6.460%,19.48
+stl nth_element,xtern-all-policies,31.945,0,74.582%,31.945
+npb ua-l, non-det,13.699,0,0%,13.699
+npb ua-l, xtern-no-hint,2067.195,0,14990.116%,2067.195
+npb ua-l, xtern-hinted,78.244,0,471.166%,78.244
+npb ua-l,xtern-all-policies,2050.899,0,14871.158%,2050.899
+npb mg-l, non-det,2.468,0,0%,2.468
+npb mg-l, xtern-no-hint,12.201,0,394.368%,12.201
+npb mg-l, xtern-hinted,3.059,0,23.947%,3.059
+npb mg-l,xtern-all-policies,1.891,0,-23.379%,1.891
+pbzip2, non-det,2.209,0,0%,2.209
+pbzip2, xtern-no-hint,25.257,0,1043.368%,25.257
+pbzip2, xtern-hinted,2.492,0,12.811%,2.492
+pbzip2,xtern-all-policies,2.384,0,7.922%,2.384
+phoenix word_count, non-det,1.228,0,0%,1.228
+phoenix word_count, xtern-no-hint,9.831,0,700.570%,9.831
+phoenix word_count, xtern-hinted,2.898,0,135.993%,2.898
+phoenix word_count,xtern-all-policies,2.205,0,79.560%,2.205
+npb sp-l, non-det,5.025,0,0%,5.025
+npb sp-l, xtern-no-hint,55.877,0,1011.980%,55.877
+npb sp-l, xtern-hinted,9.074,0,80.577%,9.074
+npb sp-l,xtern-all-policies,5.24,0,4.279%,5.24
+splash2x lu_cb, non-det,12.23,0,0%,12.23
+splash2x lu_cb, xtern-no-hint,12.345,0,0.940%,12.345
+splash2x lu_cb,xtern-all-policies,12.228,0,-0.016%,12.228
+npb is-l, non-det,2.35,0,0%,2.35
+npb is-l, xtern-no-hint,49.595,0,2010.426%,49.595
+npb is-l, xtern-hinted,7.505,0,219.362%,7.505
+npb is-l,xtern-all-policies,2.333,0,-0.723%,2.333
+parsec bodytrack, non-det,39.978,0,0%,39.978
+parsec bodytrack, xtern-no-hint,193.839,0,384.864%,193.839
+parsec bodytrack, xtern-hinted,59.681,0,49.285%,59.681
+parsec bodytrack,xtern-all-policies,35.706,0,-10.686%,35.706
+parsec freqmine-openmp, non-det,50.378,0,0%,50.378
+parsec freqmine-openmp, xtern-no-hint,648.794,0,1187.852%,648.794
+parsec freqmine-openmp, xtern-hinted,124.052,0,146.242%,124.052
+parsec freqmine-openmp,xtern-all-policies,119.071,0,136.355%,119.071
+stl min_element, non-det,10.377,0,0%,10.377
+stl min_element, xtern-no-hint,24.767,0,138.672%,24.767
+stl min_element, xtern-hinted,13.868,0,33.642%,13.868
+stl min_element,xtern-all-policies,14.469,0,39.433%,14.469
+npb dc-l, non-det,23.491,0,0%,23.491
+npb dc-l, xtern-no-hint,379.552,0,1515.734%,379.552
+npb dc-l, xtern-hinted,28.273,0,20.357%,28.273
+npb dc-l,xtern-all-policies,25.934,0,10.400%,25.934
+splash2x radiosity, non-det,236.649,0,0%,236.649
+splash2x radiosity, xtern-no-hint,568.004,0,140.020%,568.004
+splash2x radiosity, xtern-hinted,258.018,0,9.030%,258.018
+splash2x radiosity,xtern-all-policies,360.109,0,52.170%,360.109
+stl adjacent_difference, non-det,24.661,0,0%,24.661
+stl adjacent_difference, xtern-no-hint,36.927,0,49.738%,36.927
+stl adjacent_difference, xtern-hinted,24.182,0,-1.942%,24.182
+stl adjacent_difference,xtern-all-policies,20.793,0,-15.685%,20.793
+stl partition, non-det,18.073,0,0%,18.073
+stl partition, xtern-no-hint,27.74,0,53.489%,27.74
+stl partition, xtern-hinted,19.093,0,5.644%,19.093
+stl partition,xtern-all-policies,19.712,0,9.069%,19.712
+npb ep-l, non-det,4.285,0,0%,4.285
+npb ep-l, xtern-no-hint,112.387,0,2522.800%,112.387
+npb ep-l, xtern-hinted,4.404,0,2.777%,4.404
+npb ep-l,xtern-all-policies,4.311,0,0.607%,4.311
+stl equal, non-det,26.189,0,0%,26.189
+stl equal, xtern-no-hint,43.954,0,67.834%,43.954
+stl equal, xtern-hinted,29.566,0,12.895%,29.566
+stl equal,xtern-all-policies,28.598,0,9.199%,28.598
+stl mismatch, non-det,28.214,0,0%,28.214
+stl mismatch, xtern-no-hint,43.028,0,52.506%,43.028
+stl mismatch, xtern-hinted,29.51,0,4.593%,29.51
+stl mismatch,xtern-all-policies,27.094,0,-3.970%,27.094
+stl set_difference, non-det,54.556,0,0%,54.556
+stl set_difference, xtern-no-hint,65.687,0,20.403%,65.687
+stl set_difference, xtern-hinted,57.981,0,6.278%,57.981
+stl set_difference,xtern-all-policies,52.466,0,-3.831%,52.466
+phoenix kmeans, non-det,0.878,0,0%,0.878
+phoenix kmeans, xtern-no-hint,10.569,0,1103.759%,10.569
+phoenix kmeans, xtern-hinted,1.285,0,46.355%,1.285
+phoenix kmeans,xtern-all-policies,1.402,0,59.681%,1.402
+stl partial_sum, non-det,25.185,0,0%,25.185
+stl partial_sum, xtern-no-hint,42.731,0,69.668%,42.731
+stl partial_sum, xtern-hinted,22.845,0,-9.291%,22.845
+stl partial_sum,xtern-all-policies,25.516,0,1.314%,25.516
+parsec blackscholes-openmp, non-det,61.489,0,0%,61.489
+parsec blackscholes-openmp, xtern-no-hint,226.826,0,268.889%,226.826
+parsec blackscholes-openmp, xtern-hinted,70.396,0,14.486%,70.396
+parsec blackscholes-openmp,xtern-all-policies,74.553,0,21.246%,74.553
+pfscan, non-det,0.002,0,0%,0.002
+pfscan, xtern-no-hint,0.037,0,1750.000%,0.037
+pfscan, xtern-hinted,0.091,0,4450.000%,0.091
+pfscan,xtern-all-policies,0.025,0,1150.000%,0.025
+parsec x264, non-det,10.239,0,0%,10.239
+parsec x264, xtern-no-hint,64.257,0,527.571%,64.257
+parsec x264, xtern-hinted,35.299,0,244.750%,35.299
+parsec x264,xtern-all-policies,42.063,0,310.812%,42.063
+stl max_element, non-det,11.439,0,0%,11.439
+stl max_element, xtern-no-hint,23.987,0,109.695%,23.987
+stl max_element, xtern-hinted,13.801,0,20.649%,13.801
+stl max_element,xtern-all-policies,13.456,0,17.633%,13.456
+parsec facesim, non-det,88.166,0,0%,88.166
+parsec facesim, xtern-no-hint,448.278,0,408.448%,448.278
+parsec facesim, xtern-hinted,57.192,0,-35.131%,57.192
+parsec facesim,xtern-all-policies,52.798,0,-40.115%,52.798
+stl set_union, non-det,13.419,0,0%,13.419
+stl set_union, xtern-no-hint,20.865,0,55.488%,20.865
+stl set_union, xtern-hinted,12.676,0,-5.537%,12.676
+stl set_union,xtern-all-policies,12.941,0,-3.562%,12.941
+splash2x barnes, non-det,15.226,0,0%,15.226
+splash2x barnes, xtern-no-hint,46.366,0,204.519%,46.366
+splash2x barnes,xtern-all-policies,37.585,0,146.847%,37.585
+splash2x fmm, non-det,16.223,0,0%,16.223
+splash2x fmm, xtern-no-hint,109.153,0,572.829%,109.153
+splash2x fmm, xtern-hinted,30.652,0,88.942%,30.652
+splash2x fmm,xtern-all-policies,94.709,0,483.795%,94.709
+stl adjacent_find_not_found, non-det,17.511,0,0%,17.511
+stl adjacent_find_not_found, xtern-no-hint,25,0,42.767%,25
+stl adjacent_find_not_found, xtern-hinted,16.478,0,-5.899%,16.478
+stl adjacent_find_not_found,xtern-all-policies,14.637,0,-16.413%,14.637
+stl inner_product, non-det,24.262,0,0%,24.262
+stl inner_product, xtern-no-hint,36.874,0,51.983%,36.874
+stl inner_product, xtern-hinted,22.905,0,-5.593%,22.905
+stl inner_product,xtern-all-policies,24.747,0,1.999%,24.747
+phoenix matrix_multiply, non-det,4.429,0,0%,4.429
+phoenix matrix_multiply, xtern-no-hint,66.279,0,1396.478%,66.279
+phoenix matrix_multiply, xtern-hinted,4.599,0,3.838%,4.599
+phoenix matrix_multiply,xtern-all-policies,4.695,0,6.006%,4.695
+stl partial_sort, non-det,32.186,0,0%,32.186
+stl partial_sort, xtern-no-hint,36.201,0,12.474%,36.201
+stl partial_sort, xtern-hinted,36.824,0,14.410%,36.824
+stl partial_sort,xtern-all-policies,31.586,0,-1.864%,31.586
+phoenix matrix_multiply-pthread, non-det,14.016,0,0%,14.016
+phoenix matrix_multiply-pthread, xtern-no-hint,88.12,0,528.710%,88.12
+phoenix matrix_multiply-pthread, xtern-hinted,25.636,0,82.905%,25.636
+phoenix matrix_multiply-pthread,xtern-all-policies,24.032,0,71.461%,24.032
+phoenix string_match, non-det,0.575,0,0%,0.575
+phoenix string_match, xtern-no-hint,7.812,0,1258.609%,7.812
+phoenix string_match, xtern-hinted,0.794,0,38.087%,0.794
+phoenix string_match,xtern-all-policies,0.677,0,17.739%,0.677
+splash2x radix, non-det,3.949,0,0%,3.949
+splash2x radix, xtern-no-hint,31.882,0,707.344%,31.882
+splash2x radix, xtern-hinted,4.475,0,13.320%,4.475
+splash2x radix,xtern-all-policies,3.982,0,0.836%,3.982
+splash2x water_nsquared, non-det,35.334,0,0%,35.334
+splash2x water_nsquared, xtern-no-hint,44.037,0,24.631%,44.037
+splash2x water_nsquared,xtern-all-policies,42.375,0,19.927%,42.375
+npb cg-l, non-det,14.631,0,0%,14.631
+npb cg-l, xtern-no-hint,124.853,0,753.346%,124.853
+npb cg-l, xtern-hinted,14.324,0,-2.098%,14.324
+npb cg-l,xtern-all-policies,9.197,0,-37.140%,9.197
+stl search_not_found, non-det,16.224,0,0%,16.224
+stl search_not_found, xtern-no-hint,104.522,0,544.243%,104.522
+stl search_not_found, xtern-hinted,16.486,0,1.615%,16.486
+stl search_not_found,xtern-all-policies,16.619,0,2.435%,16.619
+parsec ferret, non-det,74.144,0,0%,74.144
+parsec ferret, xtern-no-hint,429.187,0,478.856%,429.187
+parsec ferret, xtern-hinted,239.329,0,222.789%,239.329
+parsec ferret,xtern-all-policies,238.76,0,222.022%,238.76

@@ -1,0 +1,40 @@
+--- aget-0.4.1-bak/Aget.c	2018-08-04 00:57:07.635656470 -0400
++++ aget-0.4.1/Aget.c	2018-08-04 00:59:52.586946763 -0400
+@@ -24,6 +24,8 @@
+ #include "Resume.h"
+ #include "Data.h"
+ 
++#include "tern/user.h"
++
+ 
+ extern struct thread_data *wthread;
+ extern struct request *req;
+@@ -88,6 +90,7 @@
+ 	/* Get the starting time, prepare GET format string, and start the threads */
+ 	fmt = (char *)calloc(GETREQSIZ - 2, sizeof(char));
+ 	time(&t_start);
++	slock_next_n(nthreads);
+ 	for (i = 0; i < nthreads; i++) {
+ 		soffset = calc_offset(req->clength, i, nthreads);
+ 		foffset = calc_offset(req->clength, i + 1, nthreads);
+@@ -173,6 +176,7 @@
+ 				wthread[i].offset - wthread[i].soffset);
+ #endif
+ 
++	slock_next_n(nthreads);
+ 	for (i = 0; i < nthreads; i++) {
+ 		wthread[i].soffset = wthread[i].offset;
+ 		wthread[i].fd = dup(fd);
+--- aget-0.4.1-bak/Makefile	2018-08-04 00:57:07.635656470 -0400
++++ aget-0.4.1/Makefile	2018-08-04 01:06:21.002762027 -0400
+@@ -2,8 +2,8 @@
+ # http://www.enderunix.org/aget/
+ 
+ OBJS = main.o Aget.o Misc.o Head.o Signal.o Download.o Resume.o
+-CFLAGS = -g -W -D_GNU_SOURCE
+-LDFLAGS = -pthread
++CFLAGS = -g -W -D_GNU_SOURCE -I$(XTERN_ROOT)/include
++LDFLAGS = -pthread -L$(XTERN_ROOT)/dync_hook -Wl,--rpath,$(XTERN_ROOT)/dync_hook -lxtern-annot
+ CC = gcc
+ STRIP = strip
+ 

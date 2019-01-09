@@ -1,0 +1,12 @@
+diff --git a/src/tpool.c b/src/tpool.c
+index 11f32f6..f0ee8dc 100644
+--- a/src/tpool.c
++++ b/src/tpool.c
+@@ -93,6 +93,7 @@ tpool_t* tpool_create (int num_threads)
+     CHECK_ERROR (pthread_attr_setdetachstate (&attr, PTHREAD_CREATE_DETACHED));
+ 
+     tpool->die = 0;
++    slock_next_n(num_threads*2);
+     for (i = 0; i < num_threads; ++i) {
+         /* Initialize thread argument. */
+         CHECK_ERROR (sem_init (&(tpool->thread_args[i].sem_run), 0, 0));

@@ -1,0 +1,18 @@
+--- parsec-2.0-orig/pkgs/apps/blackscholes/src/blackscholes.c	2009-02-12 13:04:23.000000000 -0500
++++ parsec-2.0/pkgs/apps/blackscholes/src/blackscholes.c	2018-07-31 03:35:23.482386572 -0400
+@@ -11,6 +11,7 @@
+ #include <stdlib.h>
+ #include <math.h>
+ #include <string.h>
++#include "tern/user.h"
+ 
+ #ifdef ENABLE_PARSEC_HOOKS
+ #include <hooks.h>
+@@ -367,6 +368,7 @@
+ #endif
+ #ifdef ENABLE_THREADS
+     int tids[nThreads];
++    slock_next_n(nThreads);
+     for(i=0; i<nThreads; i++) {
+         tids[i]=i;
+         CREATE_WITH_ARG(bs_thread, &tids[i]);

@@ -1,0 +1,324 @@
+diff --git a/apps/phoenix/phoenix-2.0.0/include/map_reduce.h b/apps/phoenix/phoenix-2.0.0/include/map_reduce.h
+index 66566c4..96b7f3c 100644
+--- a/apps/phoenix/phoenix-2.0.0/include/map_reduce.h
++++ b/apps/phoenix/phoenix-2.0.0/include/map_reduce.h
+@@ -42,6 +42,7 @@ typedef struct
+ {
+    intptr_t length;
+    void *data;
++   uint64_t soba_time;
+ } map_args_t;
+ 
+ /* Single element of result
+@@ -67,6 +68,7 @@ typedef struct
+ //Extra data for debugging
+ typedef struct
+ {
++    uint64_t soba_time;
+     void *key;
+ } task_args_t;
+ 
+@@ -171,6 +173,7 @@ typedef struct
+     float key_match_factor;     /* Magic number that describes the ratio of 
+     * the input data size to the output data size.
+     * This is used as a hint. */
++    int reduce_soba_id;
+ } map_reduce_args_t;
+ 
+ /* Runtime defined functions. */
+diff --git a/apps/phoenix/phoenix-2.0.0/include/stddefines.h b/apps/phoenix/phoenix-2.0.0/include/stddefines.h
+index daed8db..d04b615 100644
+--- a/apps/phoenix/phoenix-2.0.0/include/stddefines.h
++++ b/apps/phoenix/phoenix-2.0.0/include/stddefines.h
+@@ -33,7 +33,7 @@
+ #include <stdint.h>
+ #include <stdio.h>
+ 
+-//#define TIMING
++#define TIMING
+ 
+ /* Debug printf */
+ #define dprintf(...) fprintf(stdout, __VA_ARGS__)
+diff --git a/apps/phoenix/phoenix-2.0.0/src/map_reduce.c b/apps/phoenix/phoenix-2.0.0/src/map_reduce.c
+index fc2a802..b096e51 100644
+--- a/apps/phoenix/phoenix-2.0.0/src/map_reduce.c
++++ b/apps/phoenix/phoenix-2.0.0/src/map_reduce.c
+@@ -124,6 +124,7 @@ typedef struct
+     uintptr_t work_time;
+     uintptr_t user_time;
+     uintptr_t combiner_time;
++    uintptr_t soba_time;
+ } thread_timing_t;
+ 
+ typedef struct {
+@@ -177,6 +178,7 @@ typedef struct
+ 
+     taskQ_t         *taskQueue;     /* Queues of tasks. */
+     tpool_t         *tpool;         /* Thread pool. */
++    int             reduce_soba_id;
+ } mr_env_t;
+ 
+ #define MAX_NUM_THREADS 64
+@@ -565,6 +567,8 @@ env_init (map_reduce_args_t *args)
+         /* TODO: Make this tunable */
+         env->schedPolicies[i] = sched_policy_get(SCHED_POLICY_STRAND_FILL);
+     }
++    
++    env->reduce_soba_id = args->reduce_soba_id;
+ 
+     return env;
+ }
+@@ -646,6 +650,7 @@ start_workers (mr_env_t* env, thread_arg_t *th_arg)
+     uint64_t        work_time = 0;
+     uint64_t        user_time = 0;
+     uint64_t        combiner_time = 0;
++    uint64_t	    soba_time = 0;
+ #endif
+ 
+     assert(th_arg != NULL);
+@@ -683,6 +688,7 @@ start_workers (mr_env_t* env, thread_arg_t *th_arg)
+     work_time += timing->work_time;
+     user_time += timing->user_time;
+     combiner_time += timing->combiner_time;
++    soba_time += timing->soba_time;
+     mem_free (timing);
+ #endif
+     mem_free (th_arg_array[0]);
+@@ -699,6 +705,7 @@ start_workers (mr_env_t* env, thread_arg_t *th_arg)
+         work_time += timing->work_time;
+         user_time += timing->user_time;
+         combiner_time += timing->combiner_time;
++        soba_time += timing->soba_time;
+         mem_free (timing);
+ #endif
+         mem_free (th_arg_array[thread_index]);
+@@ -717,6 +724,8 @@ start_workers (mr_env_t* env, thread_arg_t *th_arg)
+                                         user_time / num_threads);
+             fprintf (stderr, "map combiner time: %" PRIu64 "\n", 
+                                         combiner_time / num_threads);
++	    fprintf (stderr, "soft barrier time: %" PRIu64 "\n",
++					soba_time / num_threads);
+             break;
+ 
+         case TASK_TYPE_REDUCE:
+@@ -724,6 +733,8 @@ start_workers (mr_env_t* env, thread_arg_t *th_arg)
+                                         work_time / num_threads);
+             fprintf (stderr, "reduce user time: %" PRIu64 "\n", 
+                                         user_time / num_threads);
++            fprintf (stderr, "soft barrier time: %" PRIu64 "\n",
++					soba_time / num_threads);
+             break;
+ 
+         case TASK_TYPE_MERGE:
+@@ -741,6 +752,7 @@ start_workers (mr_env_t* env, thread_arg_t *th_arg)
+ 
+ typedef struct {
+     uint64_t            run_time;
++    uint64_t		soba_time;
+     int                 lgrp;
+ } map_worker_task_args_t;
+ 
+@@ -749,7 +761,7 @@ typedef struct {
+  * @return true if ran a task, false otherwise
+  */
+ static bool map_worker_do_next_task (
+-    mr_env_t *env, int thread_index, map_worker_task_args_t *args)
++    mr_env_t *env, int thread_index, map_worker_task_args_t *args, thread_arg_t *th_arg)
+ {
+     struct timeval  begin, end;
+     int             alloc_len;
+@@ -774,6 +786,7 @@ static bool map_worker_do_next_task (
+ 
+     thread_func_arg.length = map_task.len;
+     thread_func_arg.data = (void *)map_task.data;
++    thread_func_arg.soba_time = 0;
+ 
+     dprintf("Task %d: cpu_id -> %d - Started\n", curr_task, th_arg->cpu_id);
+ 
+@@ -784,6 +797,9 @@ static bool map_worker_do_next_task (
+ 
+ #ifdef TIMING
+     args->run_time = time_diff (&end, &begin);
++    args->soba_time = thread_func_arg.soba_time;
++    dprintf (stderr, "Map Task %d: cpu_id -> %d start: %ld.%06ld; end: %ld.%06ld; delta: %ld\n",
++            curr_task, th_arg->cpu_id, begin.tv_sec, begin.tv_usec, end.tv_sec, end.tv_usec, args->run_time);
+ #endif
+ 
+     dprintf("Task %d: cpu_id -> %d - Done\n", curr_task, th_arg->cpu_id);
+@@ -814,6 +830,7 @@ map_worker (void *args)
+ #ifdef TIMING
+     uintptr_t               work_time = 0;
+     uintptr_t               combiner_time = 0;
++    uintptr_t		    soba_time = 0;
+ #endif
+ 
+     env->tinfo[thread_index].tid = pthread_self();
+@@ -829,8 +846,9 @@ map_worker (void *args)
+     mwta.lgrp = loc_get_lgrp();
+ 
+     get_time (&work_begin);
+-    while (map_worker_do_next_task (env, thread_index, &mwta)) {
++    while (map_worker_do_next_task (env, thread_index, &mwta, th_arg)) {
+         user_time += mwta.run_time;
++        soba_time += mwta.soba_time;
+         num_assigned++;
+     }
+     get_time (&work_end);
+@@ -864,6 +882,7 @@ map_worker (void *args)
+     uintptr_t emit_time = (uintptr_t)Pthread_getspecific (emit_time_key);
+     timing->user_time = user_time - emit_time;
+     timing->work_time = work_time - timing->user_time;
++    timing->soba_time = soba_time;
+     timing->combiner_time = combiner_time;
+     return (void *)timing;
+ #else
+@@ -874,6 +893,7 @@ map_worker (void *args)
+ typedef struct {
+     struct iterator_t   itr;
+     uint64_t            run_time;
++    uint64_t		soba_time;
+     int                 num_map_threads;
+     int                 lgrp;
+ } reduce_worker_task_args_t;
+@@ -887,6 +907,7 @@ static bool reduce_worker_do_next_task (
+     mr_env_t *env, int thread_index, reduce_worker_task_args_t *args)
+ {
+     struct timeval  begin, end;
++    struct timeval  it_begin, it_end, before_loop, after_loop;
+     intptr_t        curr_reduce_task = 0;
+     keyvals_t       *min_key_val, *next_min;
+     task_t          reduce_task;
+@@ -907,10 +928,20 @@ static bool reduce_worker_do_next_task (
+     num_map_threads =  args->num_map_threads;
+ 
+     args->run_time = 0;
++    args->soba_time = 0;
+     min_key_val = NULL;
+     next_min = NULL;
+ 
++    soba_wait(env->reduce_soba_id);
++#ifdef TIMING
++    get_time(&before_loop);
++    int iter_counter = -1;
++#endif
+     do {
++#ifdef TIMING
++        get_time(&it_begin);
++        iter_counter++;
++#endif
+         for (curr_thread = 0; curr_thread < num_map_threads; curr_thread++) {
+             keyvals_t       *curr_key_val;
+             keyvals_arr_t   *thread_array;
+@@ -949,10 +980,16 @@ static bool reduce_worker_do_next_task (
+ 
+             if (env->reduce != identity_reduce) {
+                 get_time (&begin);
+-                env->reduce (min_key_val->key, &args->itr);
++                task_args_t task_args = (task_args_t) {
++                    .soba_time = 0,
++                    .key=min_key_val->key
++                };
++                env->reduce (&task_args, &args->itr);
+                 get_time (&end);
+ #ifdef TIMING
+                 args->run_time += time_diff (&end, &begin);
++                args->soba_time += task_args.soba_time;
++                //fprintf (stderr, "Reduce Task %d took %d\n", curr_reduce_task, time_diff(&end, &begin));
+ #endif
+             } else {
+                 env->reduce (min_key_val->key, &args->itr);
+@@ -983,8 +1020,15 @@ static bool reduce_worker_do_next_task (
+             env->intermediate_vals[curr_thread][curr_reduce_task].pos >=
+             env->intermediate_vals[curr_thread][curr_reduce_task].len;
+             curr_thread++);
++#ifdef TIMING
++        get_time (&it_end);
++        //fprintf (stderr, "Thread %d: Reduce Task %d iteration took %d\n", thread_index, curr_reduce_task, time_diff(&it_end, &it_begin));
++#endif
+     } while (curr_thread != num_map_threads);
+-
++#ifdef TIMING
++    get_time(&after_loop);
++    //fprintf (stderr, "Thread %d: Reduce Task %d whole loop took %d\n", thread_index, curr_reduce_task, time_diff(&after_loop, &before_loop));
++#endif
+     /* Free up the memory. */
+     for (curr_thread = 0; curr_thread < num_map_threads; curr_thread++) {
+         keyvals_arr_t   *arr;
+@@ -1003,7 +1047,7 @@ reduce_worker (void *args)
+     assert(args != NULL);
+ 
+     struct timeval              work_begin, work_end;
+-    uintptr_t                   user_time = 0;
++    uintptr_t                   user_time = 0, soba_time = 0;
+     thread_arg_t                *th_arg = (thread_arg_t *)args;
+     int                         thread_index = th_arg->thread_id;
+     mr_env_t                    *env = th_arg->env;
+@@ -1034,9 +1078,9 @@ reduce_worker (void *args)
+     rwta.lgrp = loc_get_lgrp();
+ 
+     get_time (&work_begin);
+-
+     while (reduce_worker_do_next_task (env, thread_index, &rwta)) {
+         user_time += rwta.run_time;
++        soba_time += rwta.soba_time;
+     }
+ 
+     get_time (&work_end);
+@@ -1055,6 +1099,7 @@ reduce_worker (void *args)
+     uintptr_t emit_time = (uintptr_t)Pthread_getspecific (emit_time_key);
+     timing->user_time = user_time - emit_time;
+     timing->work_time = work_time - timing->user_time;
++    timing->soba_time = soba_time;
+     return (void *)timing;
+ #else
+     return (void *)0;
+@@ -1101,10 +1146,10 @@ merge_worker (void *args)
+         length = 2;
+         modlen = th_arg->merge_len % 2;
+     }
+-
++    
+     int pos = thread_index * length + 
+                 ((thread_index < modlen) ? thread_index : modlen);
+-
++    
+     if (pos < th_arg->merge_len) {
+ 
+         keyval_arr_t *vals = &th_arg->merge_input[pos];
+@@ -1337,6 +1382,7 @@ static int gen_reduce_tasks (mr_env_t* env)
+     tq_reset (env->taskQueue, env->num_reduce_threads);
+ 
+     tasks_per_thread = env->num_reduce_tasks / env->num_reduce_threads;
++    fprintf(stderr, "DEBUG: reduce task per thread: %d.\n", tasks_per_thread);
+     tasks_leftover = env->num_reduce_tasks - 
+         tasks_per_thread * env->num_map_threads;
+ 
+@@ -1855,14 +1901,26 @@ identity_reduce (void *key, iterator_t *itr)
+ void
+ identity_reduce_wordcount (void *key, iterator_t *itr)
+ {
+-    soba_wait(2);
+     void        *val;
+     mr_env_t    *env;
++    struct timeval begin, end;
++ 
++    task_args_t *args = key; 
++    void *real_key = args->key;
++
++#ifdef TIMING
++    get_time (&begin);
++#endif
++    soba_wait(2);
++#ifdef TIMING
++    get_time (&end);
++    args->soba_time = time_diff(&end, &begin);
++#endif
+ 
+     env = get_env();
+     while (iter_next (itr, &val))
+     {
+-        emit_inline (env, key, val);
++        emit_inline (env, real_key, val);
+     }
+ }
+ 

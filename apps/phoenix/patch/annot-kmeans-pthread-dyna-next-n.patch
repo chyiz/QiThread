@@ -1,0 +1,19 @@
+--- phoenix-2.0.0-local/tests/kmeans/kmeans-pthread.c	2018-01-22 05:27:14.373871794 -0500
++++ phoenix-2.0.0/tests/kmeans/kmeans-pthread.c	2018-07-12 01:00:54.560887411 -0400
+@@ -312,6 +312,7 @@
+             arg->num_pts++;
+             excess--;            
+          }
++         slock_next_n((curr_point + arg->num_pts) < num_points? 2:1);
+          CHECK_ERROR((pthread_create(&(pid[num_threads++]), &attr, find_clusters,
+                                                    (void *)(arg))) != 0);
+          curr_point += arg->num_pts;
+@@ -326,6 +327,8 @@
+       excess = num_means % num_procs;
+       curr_point = 0;
+       num_threads = 0;
++
++      slock_next_n(num_procs);
+       while (curr_point < num_means) {
+          CHECK_ERROR((arg = (thread_arg *)malloc(sizeof(thread_arg))) == NULL);
+          arg->start_idx = curr_point;

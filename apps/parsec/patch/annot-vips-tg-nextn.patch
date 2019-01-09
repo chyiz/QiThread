@@ -1,0 +1,72 @@
+--- parsec-2.0-orig/pkgs/apps/vips/src/libsrc/iofuncs/im_wbuffer.c	2008-09-15 11:22:39.000000000 -0400
++++ parsec-2.0/pkgs/apps/vips/src/libsrc/iofuncs/im_wbuffer.c	2018-08-13 20:03:33.437352077 -0400
+@@ -245,8 +245,13 @@
+ 
+ 	/* Loop over area, sparking threads for all sub-parts in turn.
+ 	 */
++	int threads_to_be_dispatched = 0;
+ 	for( y = area->top; y < IM_RECT_BOTTOM( area ); y += tg->ph )
+ 		for( x = area->left; x < IM_RECT_RIGHT( area ); x += tg->pw ) {
++			if (threads_to_be_dispatched == 0){
++				slock_next_n(tg->nthr*10);
++				threads_to_be_dispatched = tg->nthr;
++			}
+ 			im_thread_t *thr;
+ 			Rect pos;
+ 			Rect clipped;
+@@ -284,6 +289,7 @@
+ 			 */
+ 			im_semaphore_upn( &wbuffer->nwrite, -1 );
+ 			im_threadgroup_trigger( thr );
++			threads_to_be_dispatched--;
+ 
+ 			/* Trigger any eval callbacks on our source image.
+ 			 */
+--- parsec-2.0-orig/pkgs/apps/vips/src/libsrc/iofuncs/im_iterate.c	2008-09-15 11:22:39.000000000 -0400
++++ parsec-2.0/pkgs/apps/vips/src/libsrc/iofuncs/im_iterate.c	2018-08-13 23:42:27.979830662 -0400
+@@ -89,8 +89,13 @@
+ 
+ 	/* Loop over or, attaching to all sub-parts in turn.
+ 	 */
++	int threads_to_be_dispatched = 0;
+ 	for( y = 0; y < im->Ysize; y += tg->ph )
+ 		for( x = 0; x < im->Xsize; x += tg->pw ) {
++			if (threads_to_be_dispatched == 0){
++				slock_next_n(tg->nthr*7);
++				threads_to_be_dispatched = tg->nthr;
++			}
+ 			im_thread_t *thr;
+ 			Rect pos;
+ 			Rect clipped;
+@@ -114,6 +119,7 @@
+ 			/* Start worker going.
+ 			 */
+ 			im_threadgroup_trigger( thr );
++			threads_to_be_dispatched--;
+ 
+ 			/* Trigger any eval callbacks on our source image.
+ 			 */
+--- parsec-2.0-orig/pkgs/apps/vips/src/libsrc/iofuncs/im_generate.c	2008-09-15 11:22:39.000000000 -0400
++++ parsec-2.0/pkgs/apps/vips/src/libsrc/iofuncs/im_generate.c	2018-08-13 23:42:41.304211561 -0400
+@@ -223,8 +223,13 @@
+ 
+ 	/* Loop over or, attaching to all sub-parts in turn.
+ 	 */
++	int threads_to_be_dispatched = 0;
+ 	for( y = r->top; y < IM_RECT_BOTTOM( r ); y += tg->ph )
+ 		for( x = r->left; x < IM_RECT_RIGHT( r ); x += tg->pw ) {
++			if (threads_to_be_dispatched == 0){
++				slock_next_n(tg->nthr*7);
++				threads_to_be_dispatched = tg->nthr;
++			}
+ 			im_thread_t *thr;
+ 			Rect pos;
+ 			Rect clipped;
+@@ -252,6 +257,7 @@
+ 			thr->x = clipped.left;
+ 			thr->y = clipped.top;
+ 			im_threadgroup_trigger( thr );
++			threads_to_be_dispatched--;
+ 
+ 			/* Check for errors.
+ 			 */

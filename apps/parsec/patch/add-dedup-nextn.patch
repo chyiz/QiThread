@@ -1,0 +1,33 @@
+--- parsec-2.0-orig/pkgs/kernels/dedup/src/encoder.c	2009-01-27 20:19:20.000000000 -0500
++++ parsec-2.0/pkgs/kernels/dedup/src/encoder.c	2018-07-31 03:42:37.807205168 -0400
+@@ -10,6 +10,8 @@
+ #include "binheap.h"
+ #include "tree.h"
+ 
++#include "tern/user.h"
++
+ #ifdef ENABLE_PARSEC_HOOKS
+ #include <hooks.h>
+ #endif
+@@ -1166,18 +1168,21 @@
+ 
+   //Create 3 thread pools for the intermediate pipeline stages
+   struct thread_args chunk_thread_args[conf->nthreads];
++  slock_next_n(conf->nthreads);
+   for (i = 0; i < conf->nthreads; i ++) {
+     chunk_thread_args[i].tid = i;
+     pthread_create(&threads_chunk[i], NULL, ChunkProcess, &chunk_thread_args[i]);
+   }
+ 
+   struct thread_args anchor_thread_args[conf->nthreads];
++  slock_next_n(conf->nthreads);
+   for (i = 0; i < conf->nthreads; i ++) {
+      anchor_thread_args[i].tid = i;
+      pthread_create(&threads_anchor[i], NULL, FindAllAnchors, &anchor_thread_args[i]);
+   }
+ 
+   struct thread_args compress_thread_args[conf->nthreads];
++  slock_next_n(conf->nthreads);
+   for (i = 0; i < conf->nthreads; i ++) {
+     compress_thread_args[i].tid = i;
+     pthread_create(&threads_compress[i], NULL, Compress, &compress_thread_args[i]);

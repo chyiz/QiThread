@@ -1,0 +1,128 @@
+--- parsec-2.0-orig/pkgs/apps/vips/src/libsrc/iofuncs/im_wbuffer.c	2008-09-15 11:22:39.000000000 -0400
++++ parsec-2.0/pkgs/apps/vips/src/libsrc/iofuncs/im_wbuffer.c	2018-10-24 23:05:19.725250012 -0400
+@@ -56,6 +56,8 @@
+ #include <vips/internal.h>
+ #include <vips/thread.h>
+ 
++#include <tern/user.h>
++
+ #ifdef WITH_DMALLOC
+ #include <dmalloc.h>
+ #endif /*WITH_DMALLOC*/
+@@ -245,8 +247,14 @@
+ 
+ 	/* Loop over area, sparking threads for all sub-parts in turn.
+ 	 */
++	int threads_to_be_dispatched = 16;
++	scwf_ignore_variable(1);
+ 	for( y = area->top; y < IM_RECT_BOTTOM( area ); y += tg->ph )
+ 		for( x = area->left; x < IM_RECT_RIGHT( area ); x += tg->pw ) {
++			if (threads_to_be_dispatched == 0){
++				slock_next_n(tg->nthr*10);
++				threads_to_be_dispatched = tg->nthr;
++			}
+ 			im_thread_t *thr;
+ 			Rect pos;
+ 			Rect clipped;
+@@ -284,6 +292,7 @@
+ 			 */
+ 			im_semaphore_upn( &wbuffer->nwrite, -1 );
+ 			im_threadgroup_trigger( thr );
++			threads_to_be_dispatched--;
+ 
+ 			/* Trigger any eval callbacks on our source image.
+ 			 */
+@@ -299,7 +308,7 @@
+ 				return( -1 );
+ 			}
+ 		}
+-
++	scwf_ignore_variable(0);
+ 	return( 0 );
+ }
+ 
+--- parsec-2.0-orig/pkgs/apps/vips/src/libsrc/iofuncs/im_iterate.c	2008-09-15 11:22:39.000000000 -0400
++++ parsec-2.0/pkgs/apps/vips/src/libsrc/iofuncs/im_iterate.c	2018-10-24 23:05:09.333037373 -0400
+@@ -66,6 +66,8 @@
+ #include <vips/vips.h>
+ #include <vips/internal.h>
+ 
++#include <tern/user.h>
++
+ #ifdef WITH_DMALLOC
+ #include <dmalloc.h>
+ #endif /*WITH_DMALLOC*/
+@@ -89,8 +91,14 @@
+ 
+ 	/* Loop over or, attaching to all sub-parts in turn.
+ 	 */
++	int threads_to_be_dispatched = 16;
++	scwf_ignore_variable(1);
+ 	for( y = 0; y < im->Ysize; y += tg->ph )
+ 		for( x = 0; x < im->Xsize; x += tg->pw ) {
++			if (threads_to_be_dispatched == 0){
++				slock_next_n(tg->nthr*7);
++				threads_to_be_dispatched = tg->nthr;
++			}
+ 			im_thread_t *thr;
+ 			Rect pos;
+ 			Rect clipped;
+@@ -114,6 +122,7 @@
+ 			/* Start worker going.
+ 			 */
+ 			im_threadgroup_trigger( thr );
++			threads_to_be_dispatched--;
+ 
+ 			/* Trigger any eval callbacks on our source image.
+ 			 */
+@@ -133,6 +142,7 @@
+ 	/* Wait for all threads to hit 'go' again.
+ 	 */
+ 	im_threadgroup_wait( tg );
++	scwf_ignore_variable(0);
+ 
+ 	/* Test for any errors.
+ 	 */
+--- parsec-2.0-orig/pkgs/apps/vips/src/libsrc/iofuncs/im_generate.c	2008-09-15 11:22:39.000000000 -0400
++++ parsec-2.0/pkgs/apps/vips/src/libsrc/iofuncs/im_generate.c	2018-10-24 23:05:01.272872421 -0400
+@@ -95,6 +95,8 @@
+ #include <vips/internal.h>
+ #include <vips/thread.h>
+ 
++#include <tern/user.h>
++
+ #ifdef WITH_DMALLOC
+ #include <dmalloc.h>
+ #endif /*WITH_DMALLOC*/
+@@ -223,8 +225,14 @@
+ 
+ 	/* Loop over or, attaching to all sub-parts in turn.
+ 	 */
++	int threads_to_be_dispatched = 16;
++	scwf_ignore_variable(1);
+ 	for( y = r->top; y < IM_RECT_BOTTOM( r ); y += tg->ph )
+ 		for( x = r->left; x < IM_RECT_RIGHT( r ); x += tg->pw ) {
++			if (threads_to_be_dispatched == 0){
++				slock_next_n(tg->nthr*7);
++				threads_to_be_dispatched = tg->nthr;
++			}
+ 			im_thread_t *thr;
+ 			Rect pos;
+ 			Rect clipped;
+@@ -252,6 +260,7 @@
+ 			thr->x = clipped.left;
+ 			thr->y = clipped.top;
+ 			im_threadgroup_trigger( thr );
++			threads_to_be_dispatched--;
+ 
+ 			/* Check for errors.
+ 			 */
+@@ -268,6 +277,8 @@
+ 	 */
+ 	im_threadgroup_wait( tg );
+ 
++	scwf_ignore_variable(0);
++
+ 	if( im_threadgroup_iserror( tg ) )
+ 		return( -1 );
+ 

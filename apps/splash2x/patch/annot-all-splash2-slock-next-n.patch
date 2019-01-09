@@ -1,0 +1,11 @@
+--- parsec-3.0-origin/pkgs/libs/parmacs/src/m4/c.m4.null.POSIX_BARRIER	2018-06-14 23:24:57.734238785 -0400
++++ parsec-3.0/pkgs/libs/parmacs/src/m4/c.m4.null.POSIX_BARRIER	2018-08-03 03:52:03.447309823 -0400
+@@ -129,7 +129,7 @@
+ 
+ define(CREATE, `{
+ 	long	i, Error;
+-
++    slock_next_n(($2) -1);
+ 	for (i = 0; i < ($2) - 1; i++) {
+ 		Error = pthread_create(&PThreadTable[i], NULL, (void * (*)(void *))($1), NULL);
+ 		if (Error != 0) {

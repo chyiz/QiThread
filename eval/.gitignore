@@ -1,0 +1,3 @@
+# exclude evaluation output folders
+/*_dirty/
+/current

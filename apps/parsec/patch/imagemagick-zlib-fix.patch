@@ -1,0 +1,213 @@
+--- src-prepatch/magick/blob.c	2018-07-28 06:25:49.549943366 +0000
++++ src/magick/blob.c	2018-07-28 06:53:46.536842554 +0000
+@@ -125,8 +125,20 @@
+   StreamType
+     type;
+ 
+-  FILE
+-    *file;
++  union {
++    FILE
++      *file;
++
++#if defined(HasZLIB)
++    gzFile
++      gzfile;
++#endif
++
++#if defined(HasBZLIB)
++    BZFILE
++      *bzfile;
++#endif
++  };
+ 
+   StreamHandler
+     stream;
+@@ -492,14 +504,14 @@
+     case ZipStream:
+     {
+ #if defined(HasZLIB)
+-      (void) gzerror(image->blob->file,&status);
++      (void) gzerror(image->blob->gzfile,&status);
+ #endif
+       break;
+     }
+     case BZipStream:
+     {
+ #if defined(HasBZLIB)
+-      (void) BZ2_bzerror((BZFILE *) image->blob->file,&status);
++      (void) BZ2_bzerror( image->blob->bzfile,&status);
+ #endif
+       break;
+     }
+@@ -528,14 +540,14 @@
+     case ZipStream:
+     {
+ #if defined(HasZLIB)
+-      status=gzclose(image->blob->file);
++      status=gzclose(image->blob->gzfile);
+ #endif
+       break;
+     }
+     case BZipStream:
+     {
+ #if defined(HasBZLIB)
+-      BZ2_bzclose((BZFILE *) image->blob->file);
++      BZ2_bzclose(image->blob->bzfile);
+ #endif
+       break;
+     }
+@@ -694,7 +706,7 @@
+         status;
+ 
+       status=0;
+-      (void) BZ2_bzerror((BZFILE *) image->blob->file,&status);
++      (void) BZ2_bzerror( image->blob->bzfile,&status);
+       image->blob->eof=status == BZ_UNEXPECTED_EOF ? MagickTrue : MagickFalse;
+ #endif
+       break;
+@@ -2274,8 +2286,8 @@
+       ((strlen(filename) > 5) &&
+        (LocaleCompare(filename+strlen(filename)-5,".svgz") == 0)))
+     {
+-      image->blob->file=(FILE *) gzopen(filename,type);
+-      if (image->blob->file != (FILE *) NULL)
++      image->blob->gzfile=(FILE *) gzopen(filename,type);
++      if (image->blob->gzfile != (gzFile) NULL)
+         image->blob->type=ZipStream;
+     }
+   else
+@@ -2284,8 +2296,8 @@
+     if ((strlen(filename) > 4) &&
+         (LocaleCompare(filename+strlen(filename)-4,".bz2") == 0))
+       {
+-        image->blob->file=(FILE *) BZ2_bzopen(filename,type);
+-        if (image->blob->file != (FILE *) NULL)
++        image->blob->bzfile=BZ2_bzopen(filename,type);
++        if (image->blob->bzfile != (BZFILE *) NULL)
+           image->blob->type=BZipStream;
+       }
+     else
+@@ -2325,8 +2337,8 @@
+                       ((int) magick[2] == 0x08))
+                     {
+                       (void) fclose(image->blob->file);
+-                      image->blob->file=(FILE *) gzopen(filename,type);
+-                      if (image->blob->file != (FILE *) NULL)
++                      image->blob->gzfile=gzopen(filename,type);
++                      if (image->blob->gzfile != (gzFile) NULL)
+                         image->blob->type=ZipStream;
+                      }
+ #endif
+@@ -2334,8 +2346,8 @@
+                   if (strncmp((char *) magick,"BZh",3) == 0)
+                     {
+                       (void) fclose(image->blob->file);
+-                      image->blob->file=(FILE *) BZ2_bzopen(filename,type);
+-                      if (image->blob->file != (FILE *) NULL)
++                      image->blob->bzfile=BZ2_bzopen(filename,type);
++                      if (image->blob->bzfile != (BZFILE *) NULL)
+                         image->blob->type=BZipStream;
+                     }
+ #endif
+@@ -2577,12 +2589,12 @@
+       {
+         default:
+         {
+-          count=(ssize_t) gzread(image->blob->file,q,(unsigned int) length);
++          count=(ssize_t) gzread(image->blob->gzfile,q,(unsigned int) length);
+           break;
+         }
+         case 2:
+         {
+-          c=gzgetc(image->blob->file);
++          c=gzgetc(image->blob->gzfile);
+           if (c == EOF)
+             break;
+           *q++=(unsigned char) c;
+@@ -2590,7 +2602,7 @@
+         }
+         case 1:
+         {
+-          c=gzgetc(image->blob->file);
++          c=gzgetc(image->blob->gzfile);
+           if (c == EOF)
+             break;
+           *q++=(unsigned char) c;
+@@ -2605,7 +2617,7 @@
+     case BZipStream:
+     {
+ #if defined(HasBZLIB)
+-      count=(ssize_t) BZ2_bzread((BZFILE *) image->blob->file,q,(int) length);
++      count=(ssize_t) BZ2_bzread(image->blob->bzfile,q,(int) length);
+ #endif
+       break;
+     }
+@@ -3291,7 +3303,7 @@
+     case ZipStream:
+     {
+ #if defined(HasZLIB)
+-      if (gzseek(image->blob->file,(off_t) offset,whence) < 0)
++      if (gzseek(image->blob->gzfile,(off_t) offset,whence) < 0)
+         return(-1);
+ #endif
+       image->blob->offset=TellBlob(image);
+@@ -3437,14 +3449,14 @@
+     case ZipStream:
+     {
+ #if defined(HasZLIB)
+-      status=gzflush(image->blob->file,Z_SYNC_FLUSH);
++      status=gzflush(image->blob->gzfile,Z_SYNC_FLUSH);
+ #endif
+       break;
+     }
+     case BZipStream:
+     {
+ #if defined(HasBZLIB)
+-      status=BZ2_bzflush((BZFILE *) image->blob->file);
++      status=BZ2_bzflush(image->blob->bzfile);
+ #endif
+       break;
+     }
+@@ -3511,7 +3523,7 @@
+     case ZipStream:
+     {
+ #if defined(HasZLIB)
+-      offset=(MagickOffsetType) gztell(image->blob->file);
++      offset=(MagickOffsetType) gztell(image->blob->gzfile);
+ #endif
+       break;
+     }
+@@ -3658,20 +3670,20 @@
+       {
+         default:
+         {
+-          count=(ssize_t) gzwrite(image->blob->file,(void *) data,
++          count=(ssize_t) gzwrite(image->blob->gzfile,(void *) data,
+             (unsigned int) length);
+           break;
+         }
+         case 2:
+         {
+-          c=gzputc(image->blob->file,(int) *p++);
++          c=gzputc(image->blob->gzfile,(int) *p++);
+           if (c == EOF)
+             break;
+           count++;
+         }
+         case 1:
+         {
+-          c=gzputc(image->blob->file,(int) *p++);
++          c=gzputc(image->blob->gzfile,(int) *p++);
+           if (c == EOF)
+             break;
+           count++;
+@@ -3685,7 +3697,7 @@
+     case BZipStream:
+     {
+ #if defined(HasBZLIB)
+-      count=(ssize_t) BZ2_bzwrite((BZFILE *) image->blob->file,(void *) data,
++      count=(ssize_t) BZ2_bzwrite(image->blob->bzfile,(void *) data,
+         (int) length);
+ #endif
+       break;

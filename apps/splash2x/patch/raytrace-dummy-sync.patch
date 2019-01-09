@@ -1,0 +1,40 @@
+--- parsec-3.0-bak/ext/splash2x/apps/raytrace/src/shade.C	2013-07-28 10:39:57.000000000 -0400
++++ parsec-3.0/ext/splash2x/apps/raytrace/src/shade.C	2018-10-11 02:28:20.939433880 -0400
+@@ -32,7 +32,7 @@
+ #include <math.h>
+ #include "rt.h"
+ 
+-
++#include "tern/user.h"
+ 
+ /*
+  * NAME
+@@ -287,6 +287,10 @@
+ 			PushRayTreeStack(&secondary_ray, pid);
+ 
+ 			}
++                  else {
++                          tern_dummy_sync();
++                          tern_dummy_sync();
++                  }
+ 
+ 		/* Transmission. */
+ 		secondary_ray.weight = po->surf->ktran * ray->weight;
+@@ -307,7 +311,17 @@
+ 				PushRayTreeStack(&secondary_ray, pid);
+ 
+ 				}
++                         else
++                         {
++                                tern_dummy_sync();
++                                tern_dummy_sync();
++                         }
+ 			}
++                 else
++                 {
++                         tern_dummy_sync();
++                         tern_dummy_sync();
++                 }
+ 		}
+ 	}
+ 
